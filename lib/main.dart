@@ -5,14 +5,18 @@
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:latlong/latlong.dart';
 import 'package:location/location.dart';
+import 'package:poi_map_app/PairingDialog.dart';
+
+import 'data.dart';
+import 'i18n.dart';
 
 void main() => runApp(MaterialApp(
-      title: 'Černobor POI mapa',
+      onGenerateTitle: (BuildContext context) => I18N.of(context).appTitle,
       theme: ThemeData(
         primaryColor: Color(0xFF33691e),
         primaryColorBrightness: Brightness.dark,
@@ -22,6 +26,16 @@ void main() => runApp(MaterialApp(
         accentColorBrightness: Brightness.dark,
       ),
       home: Map(),
+      localizationsDelegates: [
+        const I18NDelegate(),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate
+      ],
+      supportedLocales: [
+        const Locale('en'),
+        const Locale('cs')
+      ],
     ));
 
 class MapState extends State<Map> {
@@ -29,13 +43,14 @@ class MapState extends State<Map> {
   final Location location = Location();
   final double maxZoom = 20;
   final double minZoom = 1;
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   bool locationEnabled = false;
   LatLng currentLocation;
 
-  bool pairing = false;
-  bool paired = false;
   bool pinging = false;
   bool serverAvailable = false;
+
+  ServerSettings settings;
 
   @override
   void initState() {
@@ -53,37 +68,36 @@ class MapState extends State<Map> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: scaffoldKey,
       primary: true,
       appBar: AppBar(
-        title: Text('Černobor location mapper'),
+        title: Text(I18N.of(context).appTitle),
         centerTitle: true,
       ),
       drawer: Drawer(
         child: ListView(
           children: <Widget>[
             ListTile(
-              title: Text('Paired to server'),
-              trailing: pairing
-                  ? Container(
-                      child: CircularProgressIndicator(
-                          value: null, strokeWidth: 2.5),
-                      height: 16,
-                      width: 16,
-                    )
-                  : Icon(paired ? Icons.done : Icons.clear),
-              onTap: this.onPair,
+              title: Text(I18N.of(context).drawerPaired),
+              trailing: settings == null
+                ? Icon(Icons.clear, color: Colors.red,)
+                : Icon(Icons.done, color: Colors.green,),
+              onTap: onPair,
             ),
             ListTile(
-              title: Text('Server available'),
-              enabled: paired,
-              trailing: paired && pinging
-                  ? Container(
-                      child: CircularProgressIndicator(
-                          value: null, strokeWidth: 2.5),
-                      height: 16,
-                      width: 16,
-                    )
-                  : Icon(paired && serverAvailable ? Icons.done : Icons.clear),
+              title: Text(I18N.of(context).drawerServerAvailable),
+              enabled: settings != null,
+              trailing: settings != null && pinging
+                ? Container(
+                    child: CircularProgressIndicator(
+                        value: null, strokeWidth: 2.5),
+                    height: 16,
+                    width: 16,
+                  )
+                : (settings != null && serverAvailable
+                  ? Icon(Icons.done, color: Colors.green,)
+                  : Icon(Icons.clear, color: Colors.red,)
+                ),
               onTap: this.onPing,
             ),
           ],
@@ -170,7 +184,7 @@ class MapState extends State<Map> {
             Expanded(
               flex: 0,
               child: IconButton(
-                tooltip: 'Acquire and center on current position',
+                tooltip: I18N.of(context).centerButtonTooltip,
                 icon: Icon(
                     mapController.ready && currentLocation == mapController.center
                         ? Icons.my_location
@@ -187,7 +201,7 @@ class MapState extends State<Map> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   IconButton(
-                    tooltip: 'Zoom in',
+                    tooltip: I18N.of(context).zoomIn,
                     icon: Icon(Icons.zoom_in),
                     iconSize: 30.0,
                     color: mapController.ready && mapController.zoom < maxZoom
@@ -199,7 +213,7 @@ class MapState extends State<Map> {
                     },
                   ),
                   IconButton(
-                    tooltip: 'Zoom out',
+                    tooltip: I18N.of(context).zoomOut,
                     icon: Icon(Icons.zoom_out),
                     iconSize: 30.0,
                     color: mapController.ready && mapController.zoom > minZoom
@@ -230,29 +244,20 @@ class MapState extends State<Map> {
     });
   }
 
-  void onPair() {
-    FlutterBarcodeScanner.scanBarcode("#ff6666", "Cancel", false).then((String value) {
-      developer.log('Scanned code: $value');
-      setState(() {
-        pairing = true;
-        Future.delayed(Duration(seconds: 1)).then((_) {
-          setState(() {
-            pairing = false;
-            paired = true;
-          });
-          Future.delayed(Duration(seconds: 1)).then((_) {
-            setState(() {
-              pairing = true;
-              Future.delayed(Duration(seconds: 1)).then((_) {
-                setState(() {
-                  pairing = false;
-                  paired = false;
-                });
-              });
-            });
-          });
-        });
-      });
+  void onPair() async {
+    var settings = await showDialog<ServerSettings>(
+      context: context,
+      builder: (BuildContext context) {
+        return PairingDialog(scaffoldKey: scaffoldKey,);
+      },
+    );
+    if (settings == null) {
+      developer.log('no settings');
+      return;
+    }
+    developer.log(settings.toString());
+    setState(() {
+      this.settings = settings;
     });
   }
 
