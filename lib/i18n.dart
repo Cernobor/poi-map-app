@@ -23,10 +23,6 @@ class I18N {
       'cs': 'Server dostupný',
       'en': 'Server available'
     },
-    'centerButtonTooltip': {
-      'cs': 'Zaměřit polohu a vycentrovat',
-      'en': 'Acquire and center on current position',
-    },
     'zoomIn': {
       'cs': 'Přiblížit',
       'en': 'Zoom in'
@@ -55,6 +51,10 @@ class I18N {
       'cs': 'Jméno',
       'en': 'Name'
     },
+    'descriptionLabel': {
+      'cs': 'Popis',
+      'en': 'Description'
+    },
     'errorNameRequired': {
       'cs': 'Jméno je vyžadováno',
       'en': 'Name is required'
@@ -66,6 +66,10 @@ class I18N {
     'dialogCancel': {
       'cs': 'Zrušit',
       'en': 'Cancel'
+    },
+    'dialogSave': {
+      'cs': 'Uložit',
+      'en': 'Save'
     },
     'invalidPairFields': {
       'cs': 'Pole mají neplatné hodnoty',
@@ -86,13 +90,32 @@ class I18N {
     'commErrorNameAlreadyExists': {
       'cs': 'Poslané jméno již existuje.',
       'en': 'The sent name already exists.'
+    },
+    'logPoiCurrentLocation': {
+      'cs': 'Zanést bod na aktuální poloze',
+      'en': 'Log point at current position'
+    },
+    'logPoiCrosshair': {
+      'cs': 'Zanést bod na zaměřovači',
+      'en': 'Log point at crosshair'
+    },
+    'locationContinuousButtonTooltip': {
+      'cs': 'Zapnout/vypnout získávání polohy',
+      'en': 'Turn location acquisition on/off',
+    },
+    'toggleLockViewToLocationButtonTooltip': {
+      'cs': 'Zaměřit pohled na aktuální polohu',
+      'en': 'Center view to current location'
+    },
+    'addPoiDialogTitle': {
+      'cs': 'Vlastnosti bodu',
+      'en': 'Point properties'
     }
   };
 
   String get appTitle => _messages['appTitle'][locale.languageCode];
   String get drawerPaired => _messages['drawerPaired'][locale.languageCode];
   String get drawerServerAvailable => _messages['drawerServerAvailable'][locale.languageCode];
-  String get centerButtonTooltip => _messages['centerButtonTooltip'][locale.languageCode];
   String get zoomIn => _messages['zoomIn'][locale.languageCode];
   String get zoomOut => _messages['zoomOut'][locale.languageCode];
   String get serverAddressLabel => _messages['serverAddressLabel'][locale.languageCode];
@@ -100,14 +123,21 @@ class I18N {
   String get stop => _messages['stop'][locale.languageCode];
   String get scan => _messages['scan'][locale.languageCode];
   String get nameLabel => _messages['nameLabel'][locale.languageCode];
+  String get descriptionLabel => _messages['descriptionLabel'][locale.languageCode];
   String get errorNameRequired => _messages['errorNameRequired'][locale.languageCode];
   String get dialogPair => _messages['dialogPair'][locale.languageCode];
   String get dialogCancel => _messages['dialogCancel'][locale.languageCode];
+  String get dialogSave => _messages['dialogSave'][locale.languageCode];
   String get invalidPairFields => _messages['invalidPairFields'][locale.languageCode];
   String get alertErrorTitle => _messages['alertErrorTitle'][locale.languageCode];
   String get ok => _messages['ok'][locale.languageCode];
   String get commErrorNameNotSupplied => _messages['commErrorNameNotSupplied'][locale.languageCode];
   String get commErrorNameAlreadyExists => _messages['commErrorNameAlreadyExists'][locale.languageCode];
+  String get logPoiCurrentLocation => _messages['logPoiCurrentLocation'][locale.languageCode];
+  String get logPoiCrosshair => _messages['logPoiCrosshair'][locale.languageCode];
+  String get locationContinuousButtonTooltip => _messages['locationContinuousButtonTooltip'][locale.languageCode];
+  String get lockViewToLocationButtonTooltip => _messages['toggleLockViewToLocationButtonTooltip'][locale.languageCode];
+  String get addPoiDialogTitle => _messages['addPoiDialogTitle'][locale.languageCode];
 }
 
 class I18NDelegate extends LocalizationsDelegate<I18N> {

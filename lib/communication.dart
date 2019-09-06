@@ -49,11 +49,34 @@ Future<Map<String, dynamic>> _handle(Uri uri) async {
   }
 }
 
-Future<HandshakeResponse> handshake(String serverAddress, String name) async {
-  if (serverAddress.startsWith('http://')) {
-    serverAddress = serverAddress.substring('http://'.length);
+Future<void> _handleVoid(Uri uri) async {
+  http.Response res = await http.get(uri);
+  if (res.statusCode == HttpStatus.ok) {
+    return;
+  } else {
+    throw CommException(uri, 'Request refused. Code ${res.statusCode}');
   }
-  var uri = Uri.http(serverAddress, 'handshake', {'name': name});
+}
+
+String _cleanupAddress(String address) {
+  if (address.startsWith('http://')) {
+    return address.substring('http://'.length);
+  }
+  return address;
+}
+
+Future<HandshakeResponse> handshake(String serverAddress, String name) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), 'handshake', {'name': name});
   var data = await _handle(uri);
   return HandshakeResponse.fromJson(data);
+}
+
+Future<bool> ping(String serverAddress) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), 'ping');
+  try {
+    await _handleVoid(uri);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }

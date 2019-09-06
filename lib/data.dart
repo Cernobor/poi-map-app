@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:latlong/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ServerSettings {
@@ -28,7 +29,7 @@ class ServerSettings {
   save() async {
     final path = await _localPath;
     final file = File('$path/$_FILE');
-    file.writeAsString(jsonEncode({
+    file.writeAsString(_encoder.convert({
       'serverAddress': serverAddress,
       'name': name,
       'id': id,
@@ -42,7 +43,71 @@ class ServerSettings {
   }
 }
 
+class Poi {
+  final int id;
+  final int authorId;
+  final String name;
+  final String description;
+  final LatLng coords;
+
+  Poi(this.id, this.authorId, this.name, this.description, this.coords);
+
+  Map<String, dynamic> asGeoJson() {
+    return {
+      'type': 'Feature',
+      'geometry': {
+        'coordinates': [coords.longitude, coords.latitude],
+        'type': 'Point',
+      },
+      'properties': {
+        'id': id,
+        'author_id': authorId,
+        'name': name,
+        'description': description,
+      },
+    };
+  }
+
+  static Poi fromGeoJson(Map<String, dynamic> json) {
+    return Poi(
+      json['properties']['id'],
+      json['properties']['author_id'],
+      json['properties']['name'],
+      json['properties']['description'],
+      LatLng(json['geometry']['coordinates'][1], json['geometry']['coordinates'][0])
+    );
+  }
+}
+
+class PoiCollection {
+  final String name;
+  final List<Poi> pois;
+
+  PoiCollection(this.name, this.pois);
+
+  save() async {
+    final path = await _localPath;
+    final file = File('$path/pois-$name.json');
+    file.writeAsString(_encoder.convert(pois.map((Poi poi) => poi.asGeoJson()).toList(growable: false)));
+  }
+
+  Future<void> load() async {
+    final path = await _localPath;
+    final file = File('$path/pois-$name.json');
+    List<dynamic> data = jsonDecode(await file.readAsString());
+    pois.clear();
+    pois.addAll(data.map((p) => Poi.fromGeoJson(p as Map<String, dynamic>)));
+  }
+
+  add(Poi poi) async {
+    pois.add(poi);
+    await save();
+  }
+}
+
 Future<String> get _localPath async {
   final dir = await getApplicationDocumentsDirectory();
   return dir.path;
 }
+
+const JsonEncoder _encoder = JsonEncoder.withIndent(' ');
