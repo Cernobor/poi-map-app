@@ -2,20 +2,24 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:poi_map_app/data.dart';
 
 class CommException implements Exception {
   final Uri uri;
   final String name;
+  final Map<String, dynamic> fullError;
 
-  CommException(this.uri, this.name);
+  CommException(this.uri, this.name, this.fullError);
 
   @override
   String toString() {
-    return 'CommException{uri: $uri, name: $name}';
+    return 'CommException{uri: $uri, name: $name, fullError: $fullError}';
   }
 
   static const String nameNotSupplied = 'nameNotSupplied';
   static const String nameAlreadyExists = 'nameAlreadyExists';
+  static const String malformedData = 'malformedData';
+  static const String invalidData = 'invalidData';
 }
 
 class HandshakeResponse {
@@ -35,26 +39,46 @@ class HandshakeResponse {
   }
 }
 
-Future<Map<String, dynamic>> _handle(Uri uri) async {
-  http.Response res = await http.get(uri);
+enum Method {
+  GET, POST
+}
+
+Future<dynamic> _handle(Uri uri, {Method method = Method.GET, Map<String, String> headers, dynamic body}) async {
+  http.Response res;
+  switch (method) {
+    case Method.GET:
+      res = await http.get(uri, headers: headers);
+      break;
+    case Method.POST:
+      res = await http.post(uri, headers: headers, body: body);
+      break;
+  }
   if (res.statusCode == HttpStatus.ok) {
-    Map<String, dynamic> body = jsonDecode(res.body);
-    if (body.containsKey('error')) {
-      throw CommException(uri, body['error']);
+    var body = jsonDecode(res.body);
+    if (body is Map<String, dynamic> && body.containsKey('error')) {
+      throw CommException(uri, body['error'], body);
     } else {
       return body;
     }
   } else {
-    throw CommException(uri, 'Request refused. Code ${res.statusCode}');
+    throw CommException(uri, 'Request refused. Code ${res.statusCode}', null);
   }
 }
 
-Future<void> _handleVoid(Uri uri) async {
-  http.Response res = await http.get(uri);
+Future<void> _handleVoid(Uri uri, {Method method = Method.GET, Map<String, String> headers, dynamic body}) async {
+  http.Response res;
+  switch (method) {
+    case Method.GET:
+      res = await http.get(uri, headers: headers);
+      break;
+    case Method.POST:
+      res = await http.post(uri, headers: headers, body: body);
+      break;
+  }
   if (res.statusCode == HttpStatus.ok) {
     return;
   } else {
-    throw CommException(uri, 'Request refused. Code ${res.statusCode}');
+    throw CommException(uri, 'Request refused. Code ${res.statusCode}', null);
   }
 }
 
@@ -67,7 +91,7 @@ String _cleanupAddress(String address) {
 
 Future<HandshakeResponse> handshake(String serverAddress, String name) async {
   var uri = Uri.http(_cleanupAddress(serverAddress), 'handshake', {'name': name});
-  var data = await _handle(uri);
+  var data = await _handle(uri) as Map<String, dynamic>;
   return HandshakeResponse.fromJson(data);
 }
 
@@ -79,4 +103,19 @@ Future<bool> ping(String serverAddress) async {
   } catch (_) {
     return false;
   }
+}
+
+Future<List<Poi>> download(String serverAddress) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), 'poi');
+  var data = await _handle(uri) as List;
+  return data.cast<Map<String, dynamic>>().map((Map<String, dynamic> poi) => Poi.fromGeoJson(poi)).toList(growable: false);
+}
+
+Future<void> upload(String serverAddress, PoiCollection collection) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), 'poi');
+  await _handleVoid(uri,
+    method: Method.POST,
+    headers: { 'Content-Type': 'application/json' },
+    body: encoder.convert(collection.asGeoJsonList())
+  );
 }

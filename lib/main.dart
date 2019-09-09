@@ -13,7 +13,8 @@ import 'package:latlong/latlong.dart';
 import 'package:location/location.dart';
 import 'package:poi_map_app/AddPoiDialog.dart';
 import 'package:poi_map_app/PairingDialog.dart';
-import 'package:poi_map_app/communication.dart';
+import 'package:poi_map_app/communication.dart' as comm;
+import 'package:poi_map_app/utils.dart';
 
 import 'data.dart';
 import 'i18n.dart';
@@ -125,6 +126,41 @@ class MainWidgetState extends State<MainWidget> {
               onTap: onPing,
             ),
             ListTile(
+              title: Text(I18N.of(context).sync),
+              leading: Icon(Icons.sync),
+              enabled: settings != null,
+              onTap: onSync,
+              onLongPress: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return SimpleDialog(
+                      children: <Widget>[
+                        ListTile(
+                          title: Text(I18N.of(context).download),
+                          leading: Icon(Icons.cloud_download),
+                          enabled: settings != null,
+                          onTap: () {
+                            onDownload();
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        ListTile(
+                          title: Text(I18N.of(context).upload),
+                          leading: Icon(Icons.cloud_upload),
+                          enabled: settings != null,
+                          onTap: () {
+                            onUpload();
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
+                    );
+                  }
+                );
+              },
+            ),
+            ListTile(
               title: Text(I18N.of(context).logPoiCurrentLocation),
               leading: Icon(Icons.my_location),
               onTap: () => onLogPoi(LogPoiType.currentLocation),
@@ -195,25 +231,46 @@ class MainWidgetState extends State<MainWidget> {
               : []
           ),
           MarkerLayerOptions(
-            markers: localPois.pois.map((Poi poi) {
-              return Marker(
-                point: poi.coords,
-                anchorPos: AnchorPos.align(AnchorAlign.top),
-                width: 50, height: 46,
-                builder: (context) {
-                  return IconButton(
-                    icon: Icon(Icons.place),
-                    color: Colors.blue,
-                    iconSize: 50,
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      developer.log('Marker ${poi.name} pressed.');
-                    },
-                    tooltip: poi.name,
-                  );
-                },
-              );
-            }).toList(growable: false)
+              markers: localPois.pois.map((Poi poi) {
+                return Marker(
+                  point: poi.coords,
+                  anchorPos: AnchorPos.align(AnchorAlign.top),
+                  width: 50, height: 46,
+                  builder: (context) {
+                    return IconButton(
+                      icon: Icon(Icons.place),
+                      color: Colors.blue,
+                      iconSize: 50,
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        developer.log('Marker ${poi.name} pressed.');
+                      },
+                      tooltip: poi.name,
+                    );
+                  },
+                );
+              }).toList(growable: false)
+          ),
+          MarkerLayerOptions(
+              markers: globalPois.pois.map((Poi poi) {
+                return Marker(
+                  point: poi.coords,
+                  anchorPos: AnchorPos.align(AnchorAlign.top),
+                  width: 50, height: 46,
+                  builder: (context) {
+                    return IconButton(
+                      icon: Icon(Icons.place),
+                      color: Colors.red,
+                      iconSize: 50,
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        developer.log('Marker ${poi.name} pressed.');
+                      },
+                      tooltip: poi.name,
+                    );
+                  },
+                );
+              }).toList(growable: false)
           )
         ],
         mapController: mapController,
@@ -427,7 +484,7 @@ class MainWidgetState extends State<MainWidget> {
   void onPing() async {
     setState(() {
       pinging = true;
-      ping(settings.serverAddress).then((bool pong) {
+      comm.ping(settings.serverAddress).then((bool pong) {
         setState(() {
           pinging = false;
           serverAvailable = pong;
@@ -447,6 +504,29 @@ class MainWidgetState extends State<MainWidget> {
         return true;
       });
     });
+  }
+
+  void onDownload() async {
+    developer.log('onDownload');
+    List<Poi> pois;
+    try {
+      pois = await comm.download(settings.serverAddress);
+    } on comm.CommException catch (e) {
+      await commErrorDialog(e, context);
+      return;
+    }
+    await globalPois.set(pois);
+    setState(() {});
+  }
+
+  void onUpload() async {
+    developer.log('onUpload');
+    throw UnsupportedError('Not implemented yet');
+  }
+
+  void onSync() async {
+    developer.log('onSync');
+    throw UnsupportedError('Not implemented yet');
   }
 
   void onLogPoi(LogPoiType type) async {

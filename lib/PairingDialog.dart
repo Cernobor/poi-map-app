@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:poi_map_app/data.dart';
+import 'package:poi_map_app/utils.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 
 import 'communication.dart' as comm;
@@ -166,43 +167,7 @@ class _PairingDialogState extends State<PairingDialog> {
       response = await comm.handshake(
           serverAddress, nameInputController.text);
     } on comm.CommException catch (e) {
-      var errorText = e.name;
-      switch (e.name) {
-        case comm.CommException.nameNotSupplied:
-          errorText = I18N.of(context).commErrorNameNotSupplied;
-          break;
-        case comm.CommException.nameAlreadyExists:
-          errorText = I18N.of(context).commErrorNameAlreadyExists;
-          break;
-      }
-      await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(I18N
-                .of(context)
-                .alertErrorTitle),
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(errorText),
-                Text('\n${e.uri}', style: TextStyle(fontFamily: 'monospace', fontSize: 10),),
-              ],
-            ),
-            actions: <Widget>[
-              MaterialButton(
-                child: Text(I18N.of(context).ok),
-                color: Theme.of(context).accentColor,
-                colorBrightness: Theme.of(context).accentColorBrightness,
-                textTheme: Theme.of(context).buttonTheme.textTheme,
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            ],
-          );
-        }
-      );
+      await commErrorDialog(e, context);
       return;
     }
     Navigator.of(context).pop(ServerSettings(

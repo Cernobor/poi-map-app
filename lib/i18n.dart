@@ -110,6 +110,18 @@ class I18N {
     'addPoiDialogTitle': {
       'cs': 'Vlastnosti bodu',
       'en': 'Point properties'
+    },
+    'download': {
+      'cs': 'Stáhnout ze serveru',
+      'en': 'Download from server'
+    },
+    'upload': {
+      'cs': 'Nahrát na server',
+      'en': 'Upload to server'
+    },
+    'sync': {
+      'cs': 'Synchronizovat se serverem',
+      'en': 'Synchronize with server'
     }
   };
 
@@ -138,6 +150,9 @@ class I18N {
   String get locationContinuousButtonTooltip => _messages['locationContinuousButtonTooltip'][locale.languageCode];
   String get lockViewToLocationButtonTooltip => _messages['toggleLockViewToLocationButtonTooltip'][locale.languageCode];
   String get addPoiDialogTitle => _messages['addPoiDialogTitle'][locale.languageCode];
+  String get download => _messages['download'][locale.languageCode];
+  String get upload => _messages['upload'][locale.languageCode];
+  String get sync => _messages['sync'][locale.languageCode];
 }
 
 class I18NDelegate extends LocalizationsDelegate<I18N> {

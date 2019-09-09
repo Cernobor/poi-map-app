@@ -29,7 +29,7 @@ class ServerSettings {
   save() async {
     final path = await _localPath;
     final file = File('$path/$_FILE');
-    file.writeAsString(_encoder.convert({
+    file.writeAsString(encoder.convert({
       'serverAddress': serverAddress,
       'name': name,
       'id': id,
@@ -74,7 +74,10 @@ class Poi {
       json['properties']['author_id'],
       json['properties']['name'],
       json['properties']['description'],
-      LatLng(json['geometry']['coordinates'][1], json['geometry']['coordinates'][0])
+      LatLng(
+        (json['geometry']['coordinates'][1] as num).toDouble(),
+        (json['geometry']['coordinates'][0] as num).toDouble()
+      )
     );
   }
 }
@@ -88,7 +91,7 @@ class PoiCollection {
   save() async {
     final path = await _localPath;
     final file = File('$path/pois-$name.json');
-    file.writeAsString(_encoder.convert(pois.map((Poi poi) => poi.asGeoJson()).toList(growable: false)));
+    file.writeAsString(encoder.convert(asGeoJsonList()));
   }
 
   Future<void> load() async {
@@ -103,6 +106,16 @@ class PoiCollection {
     pois.add(poi);
     await save();
   }
+
+  set(List<Poi> pois) async {
+    this.pois.clear();
+    this.pois.addAll(pois);
+    await save();
+  }
+
+  List<Map<String, dynamic>> asGeoJsonList() {
+    return pois.map((Poi poi) => poi.asGeoJson()).toList(growable: false);
+  }
 }
 
 Future<String> get _localPath async {
@@ -110,4 +123,4 @@ Future<String> get _localPath async {
   return dir.path;
 }
 
-const JsonEncoder _encoder = JsonEncoder.withIndent(' ');
+const JsonEncoder encoder = JsonEncoder.withIndent(' ');
