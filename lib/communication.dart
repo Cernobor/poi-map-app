@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:poi_map_app/data.dart';
+import 'package:poi_map_app/utils.dart';
 
 class CommException implements Exception {
   final Uri uri;
@@ -103,6 +104,16 @@ Future<bool> ping(String serverAddress) async {
   } catch (_) {
     return false;
   }
+}
+
+Future<Tuple<int, http.ByteStream>> downloadMap(String serverAddress, String tilePackPath) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), tilePackPath);
+  var req = http.Request('GET', uri);
+  var res = await req.send();
+  if (res.statusCode != HttpStatus.ok) {
+    throw CommException(uri, 'Request refused. Code: ${res.statusCode}', null);
+  }
+  return Tuple(res.contentLength, res.stream);
 }
 
 Future<List<Poi>> download(String serverAddress) async {

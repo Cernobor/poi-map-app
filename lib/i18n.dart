@@ -111,6 +111,22 @@ class I18N {
       'cs': 'Vlastnosti bodu',
       'en': 'Point properties'
     },
+    'downloadMap': {
+      'cs': 'Stáhnout mapu oblasti',
+      'en': 'Download area map'
+    },
+    'downloadingMapSnackBar': {
+      'cs': 'Stahuji...',
+      'en': 'Downloading...'
+    },
+    'unpackingMapSnackBar': {
+      'cs': 'Rozbaluji...',
+      'en': 'Unpacking...'
+    },
+    'doneMapSnackBar': {
+      'cs': 'Hotovo!',
+      'en': 'Done!'
+    },
     'download': {
       'cs': 'Stáhnout ze serveru',
       'en': 'Download from server'
@@ -150,6 +166,10 @@ class I18N {
   String get locationContinuousButtonTooltip => _messages['locationContinuousButtonTooltip'][locale.languageCode];
   String get lockViewToLocationButtonTooltip => _messages['toggleLockViewToLocationButtonTooltip'][locale.languageCode];
   String get addPoiDialogTitle => _messages['addPoiDialogTitle'][locale.languageCode];
+  String get downloadMap => _messages['downloadMap'][locale.languageCode];
+  String get downloadingMapSnackBar => _messages['downloadingMapSnackBar'][locale.languageCode];
+  String get unpackingMapSnackBar => _messages['unpackingMapSnackBar'][locale.languageCode];
+  String get doneMapSnackBar => _messages['doneMapSnackBar'][locale.languageCode];
   String get download => _messages['download'][locale.languageCode];
   String get upload => _messages['upload'][locale.languageCode];
   String get sync => _messages['sync'][locale.languageCode];

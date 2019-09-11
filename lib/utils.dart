@@ -4,6 +4,13 @@ import 'package:poi_map_app/communication.dart';
 
 import 'i18n.dart';
 
+class Tuple<A, B> {
+  final A a;
+  final B b;
+
+  Tuple(this.a, this.b);
+}
+
 Future<void> commErrorDialog(CommException e, BuildContext context) async {
   var errorText = e.name;
   switch (e.name) {

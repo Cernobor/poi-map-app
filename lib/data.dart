@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:latlong/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -116,6 +117,30 @@ class PoiCollection {
   List<Map<String, dynamic>> asGeoJsonList() {
     return pois.map((Poi poi) => poi.asGeoJson()).toList(growable: false);
   }
+}
+
+Future<void> saveTilePackRaw(Stream<List<int>> zipStream) async {
+  final path = await _localPath;
+  final file = File('$path/tilePack.zip');
+  var sink = file.openWrite();
+  await zipStream.pipe(sink);
+}
+
+Future<void> unpackTilePack(Function(int, int) onProgress) async {
+  final path = await _localPath;
+  final archiveFile = File('$path/tilePack.zip');
+  Directory('$path/mapData').deleteSync(recursive: true);
+  Archive archive = ZipDecoder().decodeBytes(await archiveFile.readAsBytes());
+  int n = 1;
+  for (ArchiveFile file in archive) {
+    if (file.isFile) {
+      var f = File('$path/mapData/${file.name}');
+      await f.create(recursive: true);
+      await f.writeAsBytes(file.content);
+    }
+    onProgress(n++, archive.length);
+  }
+  await archiveFile.delete();
 }
 
 Future<String> get _localPath async {

@@ -49,6 +49,8 @@ class MainWidgetState extends State<MainWidget> {
   final double minZoom = 1;
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
+  double progressValue = -1;
+
   StreamSubscription<LocationData> locationSubscription;
   bool viewLockedToLocation = false;
   LatLng currentLocation;
@@ -98,6 +100,12 @@ class MainWidgetState extends State<MainWidget> {
       appBar: AppBar(
         title: Text(I18N.of(context).appTitle),
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: Size(double.infinity, 6.0),
+          child: progressValue == -1 ? Container(height: 6.0) : LinearProgressIndicator(
+            value: progressValue,
+          ),
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -124,6 +132,12 @@ class MainWidgetState extends State<MainWidget> {
                   : Icon(Icons.clear, color: Colors.red,)
                 ),
               onTap: onPing,
+            ),
+            ListTile(
+              title: Text(I18N.of(context).downloadMap),
+              enabled: settings != null,
+              leading: Icon(Icons.map),
+              onTap: onDownloadMap
             ),
             ListTile(
               title: Text(I18N.of(context).sync),
@@ -504,6 +518,57 @@ class MainWidgetState extends State<MainWidget> {
         return true;
       });
     });
+  }
+
+  void onDownloadMap() async {
+    developer.log('onDownloadMap');
+    Navigator.of(context).pop();
+    // download
+    var res = await comm.downloadMap(settings.serverAddress, settings.tilePackPath);
+    var length = res.a;
+    var data = res.b;
+    var received = 0;
+    var stream = data.map(length != null ? (chunk) {
+      received += chunk.length;
+      //developer.log('Received $received of ${length} bytes.');
+      setState(() {
+        progressValue = received / length;
+      });
+      return chunk;
+    } : (chunk) {
+      received += chunk.length;
+      //developer.log('Received $received bytes.');
+      return chunk;
+    });
+    scaffoldKey.currentState.showSnackBar(SnackBar(
+      content: Text(I18N.of(context).downloadingMapSnackBar),
+      duration: Duration(seconds: 3),
+    ));
+    await saveTilePackRaw(stream);
+
+    // unpack
+    setState(() {
+      progressValue = 0;
+    });
+    scaffoldKey.currentState.showSnackBar(SnackBar(
+      content: Text(I18N.of(context).unpackingMapSnackBar),
+      duration: Duration(seconds: 3),
+    ));
+    await unpackTilePack((int n, int total) {
+      var p = n.toDouble() / total.toDouble();
+      setState(() {
+        progressValue = p;
+      });
+    });
+
+    // done
+    setState(() {
+      progressValue = -1;
+    });
+    scaffoldKey.currentState.showSnackBar(SnackBar(
+      content: Text(I18N.of(context).doneMapSnackBar),
+      duration: Duration(seconds: 3),
+    ));
   }
 
   void onDownload() async {
