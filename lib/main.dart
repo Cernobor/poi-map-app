@@ -114,6 +114,15 @@ class MainWidgetState extends State<MainWidget> {
         setState(() {
           mapTilesPath = path;
         });
+      }),
+      getMapLimits().then((MapLimits mapLimits) {
+        this.mapLimits = mapLimits;
+      }).catchError((e) {
+        developer.log(e.toString());
+        scaffoldKey.currentState.showSnackBar(SnackBar(
+          content: Text('TODO map limits'),
+          duration: Duration(seconds: 5),
+        ));
       })
     ]));
   }
@@ -244,8 +253,8 @@ class MainWidgetState extends State<MainWidget> {
           zoom: mapState?.zoom?.toDouble() ?? (mapLimits?.zoom?.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
           maxZoom: mapLimits?.zoom?.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
           minZoom: mapLimits?.zoom?.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
-          nePanBoundary: mapLimits?.getLatLngBounds()?.northEast,
-          swPanBoundary: mapLimits?.getLatLngBounds()?.southWest,
+          nePanBoundary: mapLimits?.latLngBounds?.northEast,
+          swPanBoundary: mapLimits?.latLngBounds?.southWest,
           debug: true,
           onPositionChanged: !mapController.ready
               ? null
@@ -349,6 +358,21 @@ class MainWidgetState extends State<MainWidget> {
                   },
                 );
               }).toList(growable: false)
+          ),
+          PolylineLayerOptions(
+            polylines: mapLimits == null ? [] : <Polyline>[
+              Polyline(
+                points: <LatLng>[
+                  LatLng(mapLimits.lat.min, mapLimits.lng.min),
+                  LatLng(mapLimits.lat.min, mapLimits.lng.max),
+                  LatLng(mapLimits.lat.max, mapLimits.lng.max),
+                  LatLng(mapLimits.lat.max, mapLimits.lng.min),
+                  LatLng(mapLimits.lat.min, mapLimits.lng.min),
+                ],
+                strokeWidth: 5,
+                color: Colors.red
+              )
+            ]
           )
         ],
         mapController: mapController,
@@ -640,8 +664,7 @@ class MainWidgetState extends State<MainWidget> {
 
     // get and focus on map center
     var mapLimits = await getMapLimits();
-    var bnds = mapLimits.getLatLngBounds();
-    mapController.fitBounds(bnds);
+    mapController.fitBounds(mapLimits.latLngBounds);
     if (mapController.zoom < mapLimits.zoom.min) {
       mapController.move(mapController.center, mapLimits.zoom.min.toDouble());
     } else if (mapController.zoom > mapLimits.zoom.max) {

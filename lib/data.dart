@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math';
 
@@ -53,17 +52,14 @@ class MapLimits {
   final Range<int> zoom;
   final Range<int> x;
   final Range<int> y;
+  final Range<double> lat;
+  final Range<double> lng;
 
-  MapLimits(this.zoom, this.x, this.y);
+  MapLimits(this.zoom, this.x, this.y)
+    : lat = Range(_y2lat(y.max, pow(2.0, zoom.max)), _y2lat(y.min, pow(2.0, zoom.max)))
+    , lng = Range(_x2lng(x.min, pow(2.0, zoom.max)), _x2lng(x.max, pow(2.0, zoom.max)));
 
-  LatLngBounds getLatLngBounds() {
-    double z = pow(2.0, zoom.max);
-    double latMin = _y2lat(y.min, z);
-    double lngMin = _x2lng(x.min, z);
-    double latMax = _y2lat(y.max, z);
-    double lngMax = _x2lng(x.max, z);
-    return LatLngBounds(LatLng(latMin, lngMin), LatLng(latMax, lngMax));
-  }
+  LatLngBounds get latLngBounds => LatLngBounds(LatLng(lat.min, lng.min), LatLng(lat.max, lng.max));
 
   static _y2lat(int y, double trz) => atan(sinh(pi - 2 * pi * y / trz)) * 180 / pi;
   static _x2lng(int x, double trz) => x * 360 / trz - 180;
@@ -232,19 +228,16 @@ Future<String> getMapPath() async {
 
 Future<MapLimits> getMapLimits() async {
   final mapPath = _getMapPath(await _localPath);
-  developer.log(mapPath);
   Range<int> minMaxZ = await Directory(mapPath).list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .map(int.tryParse)
       .fold(Range.nil(0), Range.merged);
-  developer.log('$mapPath/${minMaxZ.max}');
   Range<int> minMaxX = await Directory('$mapPath/${minMaxZ.max}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .map(int.tryParse)
       .fold(Range.nil(0), Range.merged);
-  developer.log('$mapPath/${minMaxZ.max}/${minMaxX.min}');
   Range<int> minXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.min}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.file)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
@@ -252,7 +245,6 @@ Future<MapLimits> getMapLimits() async {
       .map((String s) => s.substring(0, s.length - '@2x.png'.length))
       .map(int.tryParse)
       .fold(Range.nil(0), Range.merged);
-  developer.log('$mapPath/${minMaxZ.max}/${minMaxX.max}');
   Range<int> maxXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.max}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.file)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))

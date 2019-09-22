@@ -50,6 +50,11 @@ class Range<T extends num> {
   int get hashCode =>
       min.hashCode ^
       max.hashCode;
+
+  @override
+  String toString() {
+    return 'Range{min: $min, max: $max}';
+  }
 }
 
 Future<void> commErrorDialog(CommException e, BuildContext context) async {
