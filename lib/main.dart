@@ -64,6 +64,7 @@ class MainWidgetState extends State<MainWidget> {
   bool viewLockedToLocation = false;
   LatLng currentLocation;
   double currentHeading;
+  Poi navigationTarget;
 
   // settings
   String mapTilesPath;
@@ -261,7 +262,6 @@ class MainWidgetState extends State<MainWidget> {
           minZoom: mapLimits?.zoom?.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
           nePanBoundary: mapLimits?.latLngBounds?.northEast,
           swPanBoundary: mapLimits?.latLngBounds?.southWest,
-          debug: true,
           onPositionChanged: !mapController.ready
               ? null
               : onMapPositionChanged,
@@ -274,96 +274,22 @@ class MainWidgetState extends State<MainWidget> {
             placeholderImage: MemoryImage(kTransparentImage)
           ),
           MarkerLayerOptions(
-            markers: currentLocation == null
-              ? []
-              : [
-                Marker(
-                  height: 30,
-                  width: 30,
-                  anchorPos: AnchorPos.align(AnchorAlign.center),
-                  point: currentLocation,
-                  builder: (context) {
-                    if (currentHeading != null && locationSubscription != null) {
-                      return Transform.rotate(
-                        angle: currentHeading,
-                        child: Icon(
-                          Icons.navigation,
-                          color: Theme.of(context).primaryColorLight,
-                          size: 30,
-                        ),
-                      );
-                    }
-                    return Icon(
-                      Icons.my_location,
-                      color: locationSubscription == null
-                          ? Theme.of(context).disabledColor
-                          : Theme.of(context).primaryColorLight,
-                      size: 30,
-                    );
-                  }
-                )
-              ]
-          ),
-          MarkerLayerOptions(
-            markers: mapController.ready
-              ? [
-                Marker(
-                  width: 201,
-                  height: 201,
-                  anchorPos: AnchorPos.align(AnchorAlign.center),
-                  point: mapController.center,
-                  builder: (context) {
-                    return Image(
-                      image: AssetImage('assets/crosshair.png'),
-                      //width: 201,
-                      //height: 201,
-                      fit: BoxFit.fill,
-                    );
-                  })
-                ]
-              : []
-          ),
-          MarkerLayerOptions(
-              markers: localPois.pois.map((Poi poi) {
-                return Marker(
-                  point: poi.coords,
-                  anchorPos: AnchorPos.align(AnchorAlign.top),
-                  width: 50, height: 46,
-                  builder: (context) {
-                    return IconButton(
-                      icon: Icon(Icons.place),
-                      color: Colors.blue,
-                      iconSize: 50,
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        developer.log('Marker ${poi.name} pressed.');
-                      },
-                      tooltip: poi.name,
-                    );
-                  },
-                );
-              }).toList(growable: false)
-          ),
-          MarkerLayerOptions(
-              markers: globalPois.pois.map((Poi poi) {
-                return Marker(
-                  point: poi.coords,
-                  anchorPos: AnchorPos.align(AnchorAlign.top),
-                  width: 50, height: 46,
-                  builder: (context) {
-                    return IconButton(
-                      icon: Icon(Icons.place),
-                      color: Colors.red,
-                      iconSize: 50,
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        developer.log('Marker ${poi.name} pressed.');
-                      },
-                      tooltip: poi.name,
-                    );
-                  },
-                );
-              }).toList(growable: false)
+            markers: mapController.ready ? [
+              Marker(
+                width: 201,
+                height: 201,
+                anchorPos: AnchorPos.align(AnchorAlign.center),
+                point: mapController.center,
+                builder: (context) {
+                  return Image(
+                    image: AssetImage('assets/crosshair.png'),
+                    //width: 201,
+                    //height: 201,
+                    fit: BoxFit.fill,
+                  );
+                }
+              )
+            ] : []
           ),
           PolylineLayerOptions(
             polylines: mapLimits == null ? [] : <Polyline>[
@@ -377,9 +303,86 @@ class MainWidgetState extends State<MainWidget> {
                 ],
                 strokeWidth: 5,
                 color: Colors.red
+              ),
+            ]
+          ),
+          MarkerLayerOptions(
+            markers: currentLocation == null ? [] : [
+              Marker(
+                height: 30,
+                width: 30,
+                anchorPos: AnchorPos.align(AnchorAlign.center),
+                point: currentLocation,
+                builder: (context) {
+                  if (currentHeading != null && locationSubscription != null) {
+                    return Transform.rotate(
+                      angle: currentHeading,
+                      child: Icon(
+                        Icons.navigation,
+                        color: Theme.of(context).primaryColorLight,
+                        size: 30,
+                      ),
+                    );
+                  }
+                  return Icon(
+                    Icons.my_location,
+                    color: locationSubscription == null
+                        ? Theme.of(context).disabledColor
+                        : Theme.of(context).primaryColorLight,
+                    size: 30,
+                  );
+                }
               )
             ]
-          )
+          ),
+          PolylineLayerOptions(
+            polylines: currentLocation == null || navigationTarget == null ? [] : <Polyline>[
+              Polyline(
+                points: <LatLng>[
+                  currentLocation,
+                  navigationTarget.coords,
+                ],
+                strokeWidth: 5,
+                color: Colors.blue
+              ),
+            ]
+          ),
+          MarkerLayerOptions(
+            markers: globalPois.pois.map((Poi poi) {
+              return Marker(
+                point: poi.coords,
+                anchorPos: AnchorPos.align(AnchorAlign.top),
+                width: 50, height: 46,
+                builder: (context) {
+                  return Container(
+                      child: GestureDetector(
+                        onTap: () => this.onPoiTap(poi),
+                        onLongPress: () => this.onPoiLongPress(poi),
+                        child: Icon(Icons.place, size: 50, color: Colors.red),
+                      )
+                  );
+                },
+              );
+            }).toList(growable: false)
+          ),
+          MarkerLayerOptions(
+            markers: localPois.pois.map((Poi poi) {
+              return Marker(
+                point: poi.coords,
+                anchorPos: AnchorPos.align(AnchorAlign.top),
+                width: 50, height: 46,
+                builder: (context) {
+                  return Container(
+                      child: GestureDetector(
+                        onTap: () => this.onPoiTap(poi),
+                        onLongPress: () => this.onPoiLongPress(poi),
+                        child: Icon(Icons.place, size: 50, color: Colors.blue),
+                      )
+                  );
+                },
+              );
+            }).toList(growable: false)
+          ),
         ],
         mapController: mapController,
       ),
@@ -554,14 +557,14 @@ class MainWidgetState extends State<MainWidget> {
     if (locationSubscription == null) {
       locationSubscription =
           location.onLocationChanged().listen((LocationData loc) {
-            developer.log('Continuous location: ${loc.latitude} ${loc.longitude}');
+            //developer.log('Continuous location: ${loc.latitude} ${loc.longitude}');
             setState(() {
               currentLocation = LatLng(loc.latitude, loc.longitude);
               onCurrentLocation();
             });
           });
       compassSubscription = FlutterCompass.events.listen((double heading) {
-        developer.log('Heading: $heading');
+        //developer.log('Heading: $heading');
         setState(() {
           currentHeading = math.pi * heading / 180.0;
         });
@@ -763,6 +766,21 @@ class MainWidgetState extends State<MainWidget> {
   void onClearLocalPois() async {
     await localPois.set([]);
     setState(() {});
+  }
+
+  void onPoiTap(Poi poi) {
+    developer.log('Poi ${poi.name} tap.');
+  }
+
+  void onPoiLongPress(Poi poi) {
+    developer.log('Poi ${poi.name} long press.');
+    setState(() {
+      if (navigationTarget == poi) {
+        navigationTarget = null;
+      } else {
+        navigationTarget = poi;
+      }
+    });
   }
 }
 
