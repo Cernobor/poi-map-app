@@ -146,6 +146,10 @@ class I18N {
     'sync': {
       'cs': 'Synchronizovat se serverem',
       'en': 'Synchronize with server'
+    },
+    'clearLocalPois': {
+      'cs': 'Odstranit lokální body',
+      'en': 'Clear local points'
     }
   };
 
@@ -183,6 +187,7 @@ class I18N {
   String get download => _messages['download'][locale.languageCode];
   String get upload => _messages['upload'][locale.languageCode];
   String get sync => _messages['sync'][locale.languageCode];
+  String get clearLocalPois => _messages['clearLocalPois'][locale.languageCode];
 }
 
 class I18NDelegate extends LocalizationsDelegate<I18N> {

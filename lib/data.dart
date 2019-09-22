@@ -90,6 +90,17 @@ class Poi {
     };
   }
 
+  Map<String, dynamic> asMap() {
+    return {
+      'id': id,
+      'author_id': authorId,
+      'name': name,
+      'description': description,
+      'lat': coords.latitude,
+      'lng': coords.longitude
+    };
+  }
+
   static Poi fromGeoJson(Map<String, dynamic> json) {
     return Poi(
       json['properties']['id'],
@@ -137,6 +148,10 @@ class PoiCollection {
 
   List<Map<String, dynamic>> asGeoJsonList() {
     return pois.map((Poi poi) => poi.asGeoJson()).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> asMapList() {
+    return pois.map((Poi poi) => poi.asMap()).toList(growable: false);
   }
 }
 

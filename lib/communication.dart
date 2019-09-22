@@ -55,6 +55,9 @@ Future<dynamic> _handle(Uri uri, {Method method = Method.GET, Map<String, String
       break;
   }
   if (res.statusCode == HttpStatus.ok) {
+    if (res.body.isEmpty) {
+      return null;
+    }
     var body = jsonDecode(res.body);
     if (body is Map<String, dynamic> && body.containsKey('error')) {
       throw CommException(uri, body['error'], body);
@@ -124,9 +127,9 @@ Future<List<Poi>> download(String serverAddress) async {
 
 Future<void> upload(String serverAddress, PoiCollection collection) async {
   var uri = Uri.http(_cleanupAddress(serverAddress), 'poi');
-  await _handleVoid(uri,
+  await _handle(uri,
     method: Method.POST,
     headers: { 'Content-Type': 'application/json' },
-    body: encoder.convert(collection.asGeoJsonList())
+    body: encoder.convert(collection.asMapList())
   );
 }

@@ -237,12 +237,18 @@ class MainWidgetState extends State<MainWidget> {
               title: Text(I18N.of(context).logPoiCurrentLocation),
               leading: Icon(Icons.my_location),
               onTap: () => onLogPoi(LogPoiType.currentLocation),
-              enabled: currentLocation != null,
+              enabled: settings != null && currentLocation != null,
             ),
             ListTile(
               title: Text(I18N.of(context).logPoiCrosshair),
               leading: Icon(Icons.add),
               onTap: () => onLogPoi(LogPoiType.crosshair),
+              enabled: settings != null,
+            ),
+            ListTile(
+              title: Text(I18N.of(context).clearLocalPois),
+              leading: Icon(Icons.clear),
+              onTap: () => onClearLocalPois()
             )
           ],
         ),
@@ -699,12 +705,34 @@ class MainWidgetState extends State<MainWidget> {
 
   void onUpload() async {
     developer.log('onUpload');
-    throw UnsupportedError('Not implemented yet');
+    try {
+      await comm.upload(settings.serverAddress, localPois);
+    } on comm.CommException catch (e) {
+      await commErrorDialog(e, context);
+      return;
+    }
+    await localPois.set([]);
+    setState(() {});
   }
 
   void onSync() async {
     developer.log('onSync');
-    throw UnsupportedError('Not implemented yet');
+    try {
+      await comm.upload(settings.serverAddress, localPois);
+    } on comm.CommException catch (e) {
+      await commErrorDialog(e, context);
+      return;
+    }
+    List<Poi> pois;
+    try {
+      pois = await comm.download(settings.serverAddress);
+    } on comm.CommException catch (e) {
+      await commErrorDialog(e, context);
+      return;
+    }
+    await globalPois.set(pois);
+    await localPois.set([]);
+    setState(() {});
   }
 
   void onLogPoi(LogPoiType type) async {
@@ -728,7 +756,12 @@ class MainWidgetState extends State<MainWidget> {
       return;
     }
     Navigator.pop(context);
-    await localPois.add(Poi(null, null, info['name'], info['description'], loc));
+    await localPois.add(Poi(null, settings.id, info['name'], info['description'], loc));
+    setState(() {});
+  }
+
+  void onClearLocalPois() async {
+    await localPois.set([]);
     setState(() {});
   }
 }
