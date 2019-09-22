@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:poi_map_app/communication.dart';
@@ -9,6 +11,45 @@ class Tuple<A, B> {
   final B b;
 
   Tuple(this.a, this.b);
+}
+
+class Range<T extends num> {
+  final T min;
+  final T max;
+
+  Range(this.min, this.max) {
+    if (this.min > this.max) {
+      throw InvalidRangeException('$min is greater than $max');
+    }
+  }
+
+  Range.equal(T x) : this(x, x);
+
+  const Range.nil(T _) : min = null, max = null;
+
+  Range<T> merge(T v) {
+    if (this == Range.nil(v)) {
+      return Range.equal(v);
+    }
+    return Range(math.min(min, v), math.max(max, v));
+  }
+
+  static Range<V> merged<V extends num>(Range<V> r, V v) {
+    return r.merge(v);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is Range &&
+              runtimeType == other.runtimeType &&
+              min == other.min &&
+              max == other.max;
+
+  @override
+  int get hashCode =>
+      min.hashCode ^
+      max.hashCode;
 }
 
 Future<void> commErrorDialog(CommException e, BuildContext context) async {
@@ -49,4 +90,21 @@ Future<void> commErrorDialog(CommException e, BuildContext context) async {
       );
     }
   );
+}
+
+class _BaseException implements Exception {
+  final String msg;
+
+  _BaseException([this.msg]);
+
+  @override
+  String toString() => msg ?? this.runtimeType.toString();
+}
+
+class InvalidRangeException extends _BaseException {
+  InvalidRangeException(String msg) : super(msg);
+}
+
+class IllegalStateException extends _BaseException {
+  IllegalStateException(String msg) : super(msg);
 }

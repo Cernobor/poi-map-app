@@ -90,8 +90,8 @@ String _cleanupAddress(String address) {
   return address;
 }
 
-Future<HandshakeResponse> handshake(String serverAddress, String name) async {
-  var uri = Uri.http(_cleanupAddress(serverAddress), 'handshake', {'name': name});
+Future<HandshakeResponse> handshake(String serverAddress, String name, bool exists) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), 'handshake', {'name': name, 'exists': exists ? '1' : '0'});
   var data = await _handle(uri) as Map<String, dynamic>;
   return HandshakeResponse.fromJson(data);
 }

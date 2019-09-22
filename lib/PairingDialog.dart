@@ -16,6 +16,7 @@ class _PairingDialogState extends State<PairingDialog> {
 
   String addressInputError;
   String nameInputError;
+  bool exists = false;
 
   QRViewController controller;
   bool scanning = false;
@@ -120,6 +121,16 @@ class _PairingDialogState extends State<PairingDialog> {
             });
           },
         ),
+        CheckboxListTile(
+          value: exists,
+          title: Text(I18N.of(context).handshakeExistsTitle),
+          subtitle: Text(I18N.of(context).handshakeExistsSubtitle),
+          onChanged: (bool value) {
+            setState(() {
+              exists = value;
+            });
+          },
+        ),
         Row(
           mainAxisSize: MainAxisSize.max,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -165,7 +176,7 @@ class _PairingDialogState extends State<PairingDialog> {
     comm.HandshakeResponse response;
     try {
       response = await comm.handshake(
-          serverAddress, nameInputController.text);
+          serverAddress, nameInputController.text, exists);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;

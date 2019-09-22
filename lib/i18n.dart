@@ -63,6 +63,14 @@ class I18N {
       'cs': 'Spárovat',
       'en': 'Pair'
     },
+    'handshakeExistsTitle': {
+      'cs': 'Existující jméno',
+      'en': 'Existing name'
+    },
+    'handshakeExistsSubtitle': {
+      'cs': 'Spárovat s již existujícím jménem',
+      'en': 'Pair with already existing name'
+    },
     'dialogCancel': {
       'cs': 'Zrušit',
       'en': 'Cancel'
@@ -154,6 +162,8 @@ class I18N {
   String get descriptionLabel => _messages['descriptionLabel'][locale.languageCode];
   String get errorNameRequired => _messages['errorNameRequired'][locale.languageCode];
   String get dialogPair => _messages['dialogPair'][locale.languageCode];
+  String get handshakeExistsTitle => _messages['handshakeExistsTitle'][locale.languageCode];
+  String get handshakeExistsSubtitle => _messages['handshakeExistsSubtitle'][locale.languageCode];
   String get dialogCancel => _messages['dialogCancel'][locale.languageCode];
   String get dialogSave => _messages['dialogSave'][locale.languageCode];
   String get invalidPairFields => _messages['invalidPairFields'][locale.languageCode];

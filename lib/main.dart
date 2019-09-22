@@ -4,8 +4,10 @@
 
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map/plugin_api.dart';
@@ -14,7 +16,9 @@ import 'package:location/location.dart';
 import 'package:poi_map_app/AddPoiDialog.dart';
 import 'package:poi_map_app/PairingDialog.dart';
 import 'package:poi_map_app/communication.dart' as comm;
+import 'package:poi_map_app/data.dart' as data;
 import 'package:poi_map_app/utils.dart';
+import 'package:transparent_image/transparent_image.dart';
 
 import 'data.dart';
 import 'i18n.dart';
@@ -43,57 +47,103 @@ void main() => runApp(MaterialApp(
     ));
 
 class MainWidgetState extends State<MainWidget> {
+  // constants
+  static const double FALLBACK_MIN_ZOOM = 1;
+  static const double FALLBACK_MAX_ZOOM = 18;
+  // "constants"
   final MapController mapController = MapControllerImpl();
   final Location location = Location();
-  final double maxZoom = 20;
-  final double minZoom = 1;
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // handling flags and values
   double progressValue = -1;
-
-  StreamSubscription<LocationData> locationSubscription;
-  bool viewLockedToLocation = false;
-  LatLng currentLocation;
-
   bool pinging = false;
   bool serverAvailable = false;
+  StreamSubscription<LocationData> locationSubscription;
+  StreamSubscription<double> compassSubscription;
+  bool viewLockedToLocation = false;
+  LatLng currentLocation;
+  double currentHeading;
 
+  // settings
+  String mapTilesPath;
   ServerSettings settings;
   PoiCollection localPois = PoiCollection('local', <Poi>[]);
   PoiCollection globalPois = PoiCollection('global', <Poi>[]);
+  data.MapState mapState = data.MapState();
+  MapLimits mapLimits;
+
+  Future<dynamic> init;
 
   @override
   void initState() {
-    ServerSettings.load().then((ServerSettings settings) {
-      setState(() {
-        this.settings = settings;
-        startPinging();
-      });
-    }).catchError((e) {
-      developer.log(e.toString());
-      scaffoldKey.currentState.showSnackBar(SnackBar(
-        content: Text('TODO settings'),
-        duration: Duration(seconds: 5),
-      ));
-    });
-    localPois.load().catchError((e) {
-      developer.log(e.toString());
-      scaffoldKey.currentState.showSnackBar(SnackBar(
-        content: Text('TODO local'),
-        duration: Duration(seconds: 5),
-      ));
-    });
-    globalPois.load().catchError((e) {
-      developer.log(e.toString());
-      scaffoldKey.currentState.showSnackBar(SnackBar(
-        content: Text('TODO global'),
-        duration: Duration(seconds: 5),
-      ));
-    });
+    init = Future.delayed(Duration(seconds: 5), () => Future.wait([
+      ServerSettings.load().then((ServerSettings settings) {
+        setState(() {
+          this.settings = settings;
+          startPinging();
+        });
+      }).catchError((e) {
+        developer.log(e.toString());
+        scaffoldKey.currentState.showSnackBar(SnackBar(
+          content: Text('TODO settings'),
+          duration: Duration(seconds: 5),
+        ));
+      }),
+      localPois.load().catchError((e) {
+        developer.log(e.toString());
+        scaffoldKey.currentState.showSnackBar(SnackBar(
+          content: Text('TODO local'),
+          duration: Duration(seconds: 5),
+        ));
+      }),
+      globalPois.load().catchError((e) {
+        developer.log(e.toString());
+        scaffoldKey.currentState.showSnackBar(SnackBar(
+          content: Text('TODO global'),
+          duration: Duration(seconds: 5),
+        ));
+      }),
+      mapState.load().then((_) {
+        mapController.move(mapState.center, mapState.zoom.toDouble());
+      }).catchError((e) {
+        developer.log(e.toString());
+      }),
+      getMapPath().then((String path) {
+        developer.log('Map path: $path');
+        setState(() {
+          mapTilesPath = path;
+        });
+      })
+    ]));
   }
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: init,
+      initialData: false,
+      builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+        if (snapshot.data == false) {
+          return Container(
+            child: Center(
+              child: Image(
+                image: AssetImage('assets/splash.png'),
+                width: 320.0,
+                height: 362.0,
+              ),
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor
+            ),
+          );
+        }
+        return createUi(context);
+      }
+    );
+  }
+
+  Widget createUi(BuildContext context) {
     return Scaffold(
       key: scaffoldKey,
       primary: true,
@@ -190,10 +240,12 @@ class MainWidgetState extends State<MainWidget> {
       ),
       body: FlutterMap(
         options: MapOptions(
-          center: LatLng(50.071213, 14.479101),
-          zoom: 20,
-          maxZoom: maxZoom,
-          minZoom: minZoom,
+          center: mapState?.center,
+          zoom: mapState?.zoom?.toDouble() ?? (mapLimits?.zoom?.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
+          maxZoom: mapLimits?.zoom?.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
+          minZoom: mapLimits?.zoom?.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
+          nePanBoundary: mapLimits?.getLatLngBounds()?.northEast,
+          swPanBoundary: mapLimits?.getLatLngBounds()?.southWest,
           debug: true,
           onPositionChanged: !mapController.ready
               ? null
@@ -201,8 +253,10 @@ class MainWidgetState extends State<MainWidget> {
         ),
         layers: [
           TileLayerOptions(
-            urlTemplate: 'http://10.0.2.2:8080/styles/{id}/{z}/{x}/{y}@2x.png',
-            additionalOptions: {'id': 'osm-bright'},
+            tileProvider: FileTileProvider(),
+            urlTemplate: '$mapTilesPath/{z}/{x}/{y}@2x.png',
+            backgroundColor: Theme.of(context).primaryColorDark,
+            placeholderImage: MemoryImage(kTransparentImage)
           ),
           MarkerLayerOptions(
             markers: currentLocation == null
@@ -214,11 +268,21 @@ class MainWidgetState extends State<MainWidget> {
                   anchorPos: AnchorPos.align(AnchorAlign.center),
                   point: currentLocation,
                   builder: (context) {
+                    if (currentHeading != null && locationSubscription != null) {
+                      return Transform.rotate(
+                        angle: currentHeading,
+                        child: Icon(
+                          Icons.navigation,
+                          color: Theme.of(context).primaryColorLight,
+                          size: 30,
+                        ),
+                      );
+                    }
                     return Icon(
                       Icons.my_location,
                       color: locationSubscription == null
-                        ? Theme.of(context).disabledColor
-                        : Theme.of(context).primaryColorLight,
+                          ? Theme.of(context).disabledColor
+                          : Theme.of(context).primaryColorLight,
                       size: 30,
                     );
                   }
@@ -299,7 +363,7 @@ class MainWidgetState extends State<MainWidget> {
             child: FloatingActionButton(
               tooltip: I18N.of(context).zoomIn,
               child: Icon(Icons.zoom_in, size: 30,),
-              backgroundColor: mapController.ready && mapController.zoom < maxZoom
+              backgroundColor: mapController.ready && mapController.zoom < (mapLimits?.zoom?.max ?? FALLBACK_MAX_ZOOM)
                   ? Theme.of(context).accentColor
                   : Theme.of(context).disabledColor,
               onPressed: () {
@@ -313,7 +377,7 @@ class MainWidgetState extends State<MainWidget> {
             child: FloatingActionButton(
               tooltip: I18N.of(context).zoomOut,
               child: Icon(Icons.zoom_out, size: 30,),
-              backgroundColor: mapController.ready && mapController.zoom > minZoom
+              backgroundColor: mapController.ready && mapController.zoom > (mapLimits?.zoom?.min ?? FALLBACK_MIN_ZOOM)
                   ? Theme.of(context).accentColor
                   : Theme.of(context).disabledColor,
               onPressed: () {
@@ -445,6 +509,10 @@ class MainWidgetState extends State<MainWidget> {
   }
 
   void onMapPositionChanged(MapPosition position, bool hasGesture) {
+    mapState.set(
+      center: mapController.center,
+      zoom: mapController.zoom.round()
+    );
     if (mapController.center != currentLocation) {
       setState(() {
         viewLockedToLocation = false;
@@ -462,11 +530,20 @@ class MainWidgetState extends State<MainWidget> {
               onCurrentLocation();
             });
           });
+      compassSubscription = FlutterCompass.events.listen((double heading) {
+        developer.log('Heading: $heading');
+        setState(() {
+          currentHeading = math.pi * heading / 180.0;
+        });
+      });
+      developer.log('Compass subscription: $compassSubscription');
     } else {
       locationSubscription.cancel();
       setState(() {
         locationSubscription = null;
       });
+      compassSubscription.cancel();
+      compassSubscription = null;
     }
   }
 
@@ -561,6 +638,19 @@ class MainWidgetState extends State<MainWidget> {
       });
     });
 
+    // get and focus on map center
+    var mapLimits = await getMapLimits();
+    var bnds = mapLimits.getLatLngBounds();
+    mapController.fitBounds(bnds);
+    if (mapController.zoom < mapLimits.zoom.min) {
+      mapController.move(mapController.center, mapLimits.zoom.min.toDouble());
+    } else if (mapController.zoom > mapLimits.zoom.max) {
+      mapController.move(mapController.center, mapLimits.zoom.max.toDouble());
+    }
+    setState(() {
+      this.mapLimits = mapLimits;
+    });
+
     // done
     setState(() {
       progressValue = -1;
@@ -615,7 +705,7 @@ class MainWidgetState extends State<MainWidget> {
       return;
     }
     Navigator.pop(context);
-    await localPois.add(Poi(null, settings.id, info['name'], info['description'], loc));
+    await localPois.add(Poi(null, null, info['name'], info['description'], loc));
     setState(() {});
   }
 }
