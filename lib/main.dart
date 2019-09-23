@@ -50,6 +50,7 @@ class MainWidgetState extends State<MainWidget> {
   // constants
   static const double FALLBACK_MIN_ZOOM = 1;
   static const double FALLBACK_MAX_ZOOM = 18;
+  static const Distance distance = Distance();
   // "constants"
   final MapController mapController = MapControllerImpl();
   final Location location = Location();
@@ -64,6 +65,7 @@ class MainWidgetState extends State<MainWidget> {
   bool viewLockedToLocation = false;
   LatLng currentLocation;
   double currentHeading;
+  Poi infoTarget;
   Poi navigationTarget;
 
   // settings
@@ -78,6 +80,7 @@ class MainWidgetState extends State<MainWidget> {
 
   @override
   void initState() {
+    super.initState();
     init = Future.delayed(Duration(seconds: 5), () => Future.wait([
       ServerSettings.load().then((ServerSettings settings) {
         setState(() {
@@ -157,55 +160,68 @@ class MainWidgetState extends State<MainWidget> {
     return Scaffold(
       key: scaffoldKey,
       primary: true,
-      appBar: AppBar(
-        title: Text(I18N.of(context).appTitle),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: Size(double.infinity, 6.0),
-          child: progressValue == -1 ? Container(height: 6.0) : LinearProgressIndicator(
-            value: progressValue,
-          ),
+      appBar: createAppBar(context),
+      drawer: createDrawer(context),
+      body: createBody(context),
+      //floatingActionButton: createZoomControls(context),
+      //floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      bottomNavigationBar: createBottomBar(context),
+    );
+  }
+
+  Widget createAppBar(BuildContext context) {
+    return AppBar(
+      title: Text(I18N.of(context).appTitle),
+      centerTitle: true,
+      bottom: PreferredSize(
+        preferredSize: Size(double.infinity, 6.0),
+        child: progressValue == -1 ? Container(height: 6.0) : LinearProgressIndicator(
+          value: progressValue,
         ),
       ),
-      drawer: Drawer(
-        child: ListView(
-          children: <Widget>[
-            ListTile(
-              title: Text(I18N.of(context).drawerPaired),
-              trailing: settings == null
+    );
+  }
+
+  Widget createDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        children: <Widget>[
+          ListTile(
+            title: Text(I18N.of(context).drawerPaired),
+            trailing: settings == null
                 ? Icon(Icons.clear, color: Colors.red,)
                 : Icon(Icons.done, color: Colors.green,),
-              onTap: onPair,
-            ),
-            ListTile(
-              title: Text(I18N.of(context).drawerServerAvailable),
-              enabled: settings != null,
-              trailing: settings != null && pinging
+            onTap: onPair,
+          ),
+          ListTile(
+            title: Text(I18N.of(context).drawerServerAvailable),
+            enabled: settings != null,
+            trailing: settings != null && pinging
                 ? Container(
-                    child: CircularProgressIndicator(
-                        value: null, strokeWidth: 2.5),
-                    height: 16,
-                    width: 16,
-                  )
+              child: CircularProgressIndicator(
+                  value: null, strokeWidth: 2.5),
+              height: 16,
+              width: 16,
+            )
                 : (settings != null && serverAvailable
-                  ? Icon(Icons.done, color: Colors.green,)
-                  : Icon(Icons.clear, color: Colors.red,)
-                ),
-              onTap: onPing,
+                ? Icon(Icons.done, color: Colors.green,)
+                : Icon(Icons.clear, color: Colors.red,)
             ),
-            ListTile(
+            onTap: onPing,
+          ),
+          ListTile(
               title: Text(I18N.of(context).downloadMap),
               enabled: settings != null,
               leading: Icon(Icons.map),
               onTap: onDownloadMap
-            ),
-            ListTile(
-              title: Text(I18N.of(context).sync),
-              leading: Icon(Icons.sync),
-              enabled: settings != null,
-              onTap: onSync,
-              onLongPress: () {
-                showDialog(
+          ),
+          ListTile(
+            title: Text(I18N.of(context).sync),
+            leading: Icon(Icons.sync),
+            enabled: settings != null,
+            onTap: onSync,
+            onLongPress: () {
+              showDialog(
                   context: context,
                   builder: (BuildContext context) {
                     return SimpleDialog(
@@ -231,112 +247,107 @@ class MainWidgetState extends State<MainWidget> {
                       ],
                     );
                   }
-                );
-              },
-            ),
-            ListTile(
-              title: Text(I18N.of(context).logPoiCurrentLocation),
-              leading: Icon(Icons.my_location),
-              onTap: () => onLogPoi(LogPoiType.currentLocation),
-              enabled: settings != null && currentLocation != null,
-            ),
-            ListTile(
-              title: Text(I18N.of(context).logPoiCrosshair),
-              leading: Icon(Icons.add),
-              onTap: () => onLogPoi(LogPoiType.crosshair),
-              enabled: settings != null,
-            ),
-            ListTile(
+              );
+            },
+          ),
+          ListTile(
+            title: Text(I18N.of(context).logPoiCurrentLocation),
+            leading: Icon(Icons.my_location),
+            onTap: () => onLogPoi(LogPoiType.currentLocation),
+            enabled: settings != null && currentLocation != null,
+          ),
+          ListTile(
+            title: Text(I18N.of(context).logPoiCrosshair),
+            leading: Icon(Icons.add),
+            onTap: () => onLogPoi(LogPoiType.crosshair),
+            enabled: settings != null,
+          ),
+          ListTile(
               title: Text(I18N.of(context).clearLocalPois),
               leading: Icon(Icons.clear),
               onTap: () => onClearLocalPois()
-            )
-          ],
-        ),
+          )
+        ],
       ),
-      body: FlutterMap(
-        options: MapOptions(
-          center: mapState?.center,
-          zoom: mapState?.zoom?.toDouble() ?? (mapLimits?.zoom?.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
-          maxZoom: mapLimits?.zoom?.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
-          minZoom: mapLimits?.zoom?.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
-          nePanBoundary: mapLimits?.latLngBounds?.northEast,
-          swPanBoundary: mapLimits?.latLngBounds?.southWest,
-          onPositionChanged: !mapController.ready
-              ? null
-              : onMapPositionChanged,
+    );
+  }
+
+  Widget createBody(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        createMap(context),
+        if (navigationTarget != null && currentLocation != null)
+          Container(
+            child: createPoiInfoContentDistance(context),
+            alignment: Alignment.bottomCenter,
+            constraints: BoxConstraints.expand(),
+          ),
+        if (infoTarget != null)
+          Container(
+            child: createPoiInfoContentFull(context),
+            alignment: Alignment.bottomCenter,
+            constraints: BoxConstraints.expand(),
+          ),
+        Container(
+          alignment: Alignment.center,
+          child: IgnorePointer(
+            child: Image(
+              image: AssetImage('assets/crosshair.png'),
+              //width: 201,
+              //height: 201,
+            )
+          )
         ),
-        layers: [
-          TileLayerOptions(
+        Container(
+          child: createZoomControls(context),
+          alignment: Alignment.topRight,
+          padding: EdgeInsets.all(8.0),
+        )
+      ],
+    );
+  }
+
+  Widget createMap(BuildContext context) {
+    return FlutterMap(
+      options: MapOptions(
+        center: mapState?.center,
+        zoom: mapState?.zoom?.toDouble() ?? (mapLimits?.zoom?.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
+        maxZoom: mapLimits?.zoom?.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
+        minZoom: mapLimits?.zoom?.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
+        nePanBoundary: mapLimits?.latLngBounds?.northEast,
+        swPanBoundary: mapLimits?.latLngBounds?.southWest,
+        onPositionChanged: !mapController.ready
+            ? null
+            : onMapPositionChanged,
+        onTap: onMapTap
+      ),
+      layers: [
+        TileLayerOptions(
             tileProvider: FileTileProvider(),
             urlTemplate: '$mapTilesPath/{z}/{x}/{y}@2x.png',
             backgroundColor: Theme.of(context).primaryColorDark,
             placeholderImage: MemoryImage(kTransparentImage)
-          ),
-          MarkerLayerOptions(
-            markers: mapController.ready ? [
-              Marker(
-                width: 201,
-                height: 201,
-                anchorPos: AnchorPos.align(AnchorAlign.center),
-                point: mapController.center,
-                builder: (context) {
-                  return Image(
-                    image: AssetImage('assets/crosshair.png'),
-                    //width: 201,
-                    //height: 201,
-                    fit: BoxFit.fill,
-                  );
-                }
-              )
-            ] : []
-          ),
-          PolylineLayerOptions(
+        ),
+        // limits
+        PolylineLayerOptions(
             polylines: mapLimits == null ? [] : <Polyline>[
               Polyline(
-                points: <LatLng>[
-                  LatLng(mapLimits.lat.min, mapLimits.lng.min),
-                  LatLng(mapLimits.lat.min, mapLimits.lng.max),
-                  LatLng(mapLimits.lat.max, mapLimits.lng.max),
-                  LatLng(mapLimits.lat.max, mapLimits.lng.min),
-                  LatLng(mapLimits.lat.min, mapLimits.lng.min),
-                ],
-                strokeWidth: 5,
-                color: Colors.red
+                  points: <LatLng>[
+                    LatLng(mapLimits.lat.min, mapLimits.lng.min),
+                    LatLng(mapLimits.lat.min, mapLimits.lng.max),
+                    LatLng(mapLimits.lat.max, mapLimits.lng.max),
+                    LatLng(mapLimits.lat.max, mapLimits.lng.min),
+                    LatLng(mapLimits.lat.min, mapLimits.lng.min),
+                  ],
+                  strokeWidth: 5,
+                  color: Colors.red
               ),
             ]
-          ),
-          MarkerLayerOptions(
-            markers: currentLocation == null ? [] : [
-              Marker(
-                height: 30,
-                width: 30,
-                anchorPos: AnchorPos.align(AnchorAlign.center),
-                point: currentLocation,
-                builder: (context) {
-                  if (currentHeading != null && locationSubscription != null) {
-                    return Transform.rotate(
-                      angle: currentHeading,
-                      child: Icon(
-                        Icons.navigation,
-                        color: Theme.of(context).primaryColorLight,
-                        size: 30,
-                      ),
-                    );
-                  }
-                  return Icon(
-                    Icons.my_location,
-                    color: locationSubscription == null
-                        ? Theme.of(context).disabledColor
-                        : Theme.of(context).primaryColorLight,
-                    size: 30,
-                  );
-                }
-              )
-            ]
-          ),
+        ),
+        // line to target
+        if (currentLocation != null && navigationTarget != null)
           PolylineLayerOptions(
-            polylines: currentLocation == null || navigationTarget == null ? [] : <Polyline>[
+            polylines: <Polyline>[
               Polyline(
                 points: <LatLng>[
                   currentLocation,
@@ -347,96 +358,219 @@ class MainWidgetState extends State<MainWidget> {
               ),
             ]
           ),
+        // current location
+        if (currentLocation != null)
           MarkerLayerOptions(
-            markers: globalPois.pois.map((Poi poi) {
+            markers: [
+              Marker(
+                height: 50,
+                width: 50,
+                anchorPos: AnchorPos.align(AnchorAlign.center),
+                point: currentLocation,
+                builder: (context) {
+                  if (currentHeading != null && locationSubscription != null) {
+                    return Transform.rotate(
+                      angle: currentHeading,
+                      child: Icon(
+                        Icons.navigation,
+                        color: Theme.of(context).primaryColorLight,
+                        size: 50,
+                      ),
+                    );
+                  }
+                  return Icon(
+                    Icons.my_location,
+                    color: locationSubscription == null
+                      ? Theme.of(context).disabledColor
+                      : Theme.of(context).primaryColorLight,
+                    size: 50,
+                  );
+                }
+              )
+            ]
+          ),
+        // POIs
+        MarkerLayerOptions(
+            markers: (globalPois.pois + localPois.pois).map((Poi poi) {
               return Marker(
                 point: poi.coords,
                 anchorPos: AnchorPos.align(AnchorAlign.top),
-                width: 50, height: 46,
+                width: 50.0 * (poi == infoTarget ? 1.5 : 1),
+                height: 46.0 * (poi == infoTarget ? 1.5 : 1),
                 builder: (context) {
                   return Container(
                       child: GestureDetector(
                         onTap: () => this.onPoiTap(poi),
                         onLongPress: () => this.onPoiLongPress(poi),
-                        child: Icon(Icons.place, size: 50, color: Colors.red),
+                        child: Icon(
+                            Icons.place,
+                            size: 50.0 * (poi == infoTarget ? 1.5 : 1),
+                            color: poi.id == null ? Colors.blue : Colors.red),
                       )
                   );
                 },
               );
             }).toList(growable: false)
+        ),
+      ],
+      mapController: mapController,
+    );
+  }
+
+  Widget createPoiInfoContentDistance(BuildContext context) {
+    var dist = distance.as(LengthUnit.Centimeter, currentLocation, navigationTarget.coords) / 100.0;
+    var bearing = distance.bearing(currentLocation, navigationTarget.coords);
+    if (bearing < 0) {
+      bearing += 360;
+    }
+    return Card(
+      child: InkWell(
+        child: Container(
+          padding: EdgeInsets.all(8.0),
+          child: Text('${dist.toStringAsFixed(2)} m  ${bearing.toStringAsFixed(2)}°',
+            textAlign: TextAlign.center,
+          )
+        ),
+        onTap: onPoiInfoDistanceTap,
+      )
+    );
+  }
+
+  Widget createPoiInfoContentFull(BuildContext context) {
+    bool isNavigating = navigationTarget != null && currentLocation != null && navigationTarget == infoTarget;
+    String latStr = 'Lat: ${infoTarget.coords.latitude.toStringAsFixed(6)}';
+    String lngStr = 'Lng: ${infoTarget.coords.longitude.toStringAsFixed(6)}';
+    String distStr, brgStr;
+    if (isNavigating) {
+      distStr = '${I18N.of(context).distance}: ${distance.as(LengthUnit.Centimeter, currentLocation, navigationTarget.coords) / 100.0} m';
+      var bearing = distance.bearing(currentLocation, navigationTarget.coords);
+      if (bearing < 0) {
+        bearing += 360;
+      }
+      brgStr = '${I18N.of(context).bearing}: ${bearing.toStringAsFixed(1)}°';
+    }
+    return Dismissible(
+      key: Key('fullInfoDismissible'),
+      onDismissed: (DismissDirection dd) {
+        setState(() {
+          infoTarget = null;
+        });
+      },
+      resizeDuration: null,
+      child: Card(
+        child: Container(
+          padding: EdgeInsets.only(top: 16.0, bottom: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.only(top: 0.0, left: 16.0, right: 16.0, bottom: 4.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(infoTarget.name, style: Theme.of(context).textTheme.title),
+                    Text('$latStr $lngStr', style: Theme.of(context).textTheme.caption),
+                    if (isNavigating)
+                      Text('$distStr $brgStr', style: Theme.of(context).textTheme.caption),
+                  ],
+                ),
+              ),
+              if (infoTarget.description != null && infoTarget.description.isNotEmpty)
+                Container(
+                    padding: EdgeInsets.only(left: 16.0, right: 16.0, bottom: 4.0),
+                    child: Text(infoTarget.description)
+                ),
+              if (currentLocation != null || infoTarget.id == null)
+                Container(
+                  padding: EdgeInsets.zero,
+                  height: 30,
+                  margin: EdgeInsets.zero,
+                  child: ButtonTheme.bar(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (currentLocation != null)
+                          FlatButton(
+                            child: Text(
+                                (navigationTarget == infoTarget ? I18N.of(context).stopNavigationButton : I18N.of(context).navigateToButton).toUpperCase()
+                            ),
+                            onPressed: () => this.onPoiInfoNavigate(infoTarget),
+                          ),
+                        if (infoTarget.id == null)
+                          MaterialButton(
+                            child: Text(I18N.of(context).deleteButton.toUpperCase()),
+                            onPressed: () => this.onDeletePoi(infoTarget),
+                          )
+                      ],
+                    ),
+                  )
+                )
+            ]
+          )
+        )
+      )
+    );
+  }
+
+  Widget createZoomControls(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          padding: EdgeInsets.only(bottom: 6),
+          child: FloatingActionButton(
+            tooltip: I18N.of(context).zoomIn,
+            child: Icon(Icons.zoom_in, size: 30,),
+            backgroundColor: mapController.ready && mapController.zoom < (mapLimits?.zoom?.max ?? FALLBACK_MAX_ZOOM)
+                ? Theme.of(context).accentColor
+                : Theme.of(context).disabledColor,
+            onPressed: () {
+              mapController.move(
+                  mapController.center, mapController.zoom + 1);
+            },
           ),
-          MarkerLayerOptions(
-            markers: localPois.pois.map((Poi poi) {
-              return Marker(
-                point: poi.coords,
-                anchorPos: AnchorPos.align(AnchorAlign.top),
-                width: 50, height: 46,
-                builder: (context) {
-                  return Container(
-                      child: GestureDetector(
-                        onTap: () => this.onPoiTap(poi),
-                        onLongPress: () => this.onPoiLongPress(poi),
-                        child: Icon(Icons.place, size: 50, color: Colors.blue),
-                      )
-                  );
-                },
-              );
-            }).toList(growable: false)
+        ),
+        Container(
+          padding: EdgeInsets.only(top: 6),
+          child: FloatingActionButton(
+            tooltip: I18N.of(context).zoomOut,
+            child: Icon(Icons.zoom_out, size: 30,),
+            backgroundColor: mapController.ready && mapController.zoom > (mapLimits?.zoom?.min ?? FALLBACK_MIN_ZOOM)
+                ? Theme.of(context).accentColor
+                : Theme.of(context).disabledColor,
+            onPressed: () {
+              mapController.move(
+                  mapController.center, mapController.zoom - 1);
+            },
           ),
-        ],
-        mapController: mapController,
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.max,
+        ),
+      ],
+    );
+  }
+
+  Widget createBottomBar(BuildContext context) {
+    return BottomAppBar(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: FloatingActionButton(
-              tooltip: I18N.of(context).zoomIn,
-              child: Icon(Icons.zoom_in, size: 30,),
-              backgroundColor: mapController.ready && mapController.zoom < (mapLimits?.zoom?.max ?? FALLBACK_MAX_ZOOM)
-                  ? Theme.of(context).accentColor
-                  : Theme.of(context).disabledColor,
-              onPressed: () {
-                mapController.move(
-                    mapController.center, mapController.zoom + 1);
-              },
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: FloatingActionButton(
-              tooltip: I18N.of(context).zoomOut,
-              child: Icon(Icons.zoom_out, size: 30,),
-              backgroundColor: mapController.ready && mapController.zoom > (mapLimits?.zoom?.min ?? FALLBACK_MIN_ZOOM)
-                  ? Theme.of(context).accentColor
-                  : Theme.of(context).disabledColor,
-              onPressed: () {
-                mapController.move(
-                    mapController.center, mapController.zoom - 1);
-              },
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomAppBar(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Expanded(
-              flex: 0,
-              child: Table(
-                defaultColumnWidth: IntrinsicColumnWidth(),
-                children: <TableRow>[
-                  TableRow(
+          Expanded(
+            flex: 0,
+            child: Table(
+              defaultColumnWidth: IntrinsicColumnWidth(),
+              children: <TableRow>[
+                TableRow(
                     children: <Widget>[
                       Container(),
                       Container(
-                        padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                        alignment: Alignment.center,
-                        child: Text('GPS', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),)
+                          padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                          alignment: Alignment.center,
+                          child: Text('GPS', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),)
                       ),
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
@@ -444,8 +578,8 @@ class MainWidgetState extends State<MainWidget> {
                         child: Text('TGT', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
                       )
                     ]
-                  ),
-                  TableRow(
+                ),
+                TableRow(
                     children: <Widget>[
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
@@ -463,8 +597,8 @@ class MainWidgetState extends State<MainWidget> {
                         child: Text(!mapController.ready ? '-' : mapController.center.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
                       ),
                     ]
-                  ),
-                  TableRow(
+                ),
+                TableRow(
                     children: <Widget>[
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
@@ -482,45 +616,44 @@ class MainWidgetState extends State<MainWidget> {
                         child: Text(!mapController.ready ? '-' : mapController.center.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
                       ),
                     ]
-                  )
-                ],
-              ),
+                )
+              ],
             ),
-            Expanded(
-              flex: 0,
-              child: Row(
-                children: <Widget>[
-                  IconButton(
-                    tooltip: I18N.of(context).locationContinuousButtonTooltip,
-                    icon: Icon(
-                        locationSubscription == null
-                            ? Icons.location_off
-                            : Icons.location_on),
-                    iconSize: 30.0,
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    onPressed: onToggleLocationContinuous,
-                  ),
-                  IconButton(
-                    tooltip: I18N.of(context).lockViewToLocationButtonTooltip,
-                    icon: Icon(
-                        viewLockedToLocation
-                            ? Icons.gps_fixed
-                            : Icons.gps_not_fixed),
-                    iconSize: 30.0,
-                    color: currentLocation == null
-                        ? Theme.of(context).disabledColor
-                        : Theme.of(context).colorScheme.onPrimary,
-                    onPressed: currentLocation == null
-                        ? null
-                        : onLockViewToLocation,
-                  ),
-                ],
-              ),
+          ),
+          Expanded(
+            flex: 0,
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  tooltip: I18N.of(context).locationContinuousButtonTooltip,
+                  icon: Icon(
+                      locationSubscription == null
+                          ? Icons.location_off
+                          : Icons.location_on),
+                  iconSize: 30.0,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  onPressed: onToggleLocationContinuous,
+                ),
+                IconButton(
+                  tooltip: I18N.of(context).lockViewToLocationButtonTooltip,
+                  icon: Icon(
+                      viewLockedToLocation
+                          ? Icons.gps_fixed
+                          : Icons.gps_not_fixed),
+                  iconSize: 30.0,
+                  color: currentLocation == null
+                      ? Theme.of(context).disabledColor
+                      : Theme.of(context).colorScheme.onPrimary,
+                  onPressed: currentLocation == null
+                      ? null
+                      : onLockViewToLocation,
+                ),
+              ],
             ),
-          ],
-        ),
-        color: Theme.of(context).primaryColor,
+          ),
+        ],
       ),
+      color: Theme.of(context).primaryColor,
     );
   }
 
@@ -768,12 +901,79 @@ class MainWidgetState extends State<MainWidget> {
     setState(() {});
   }
 
+  void onMapTap(LatLng coords) {
+    developer.log('onMapTap: $coords');
+    setState(() {
+      infoTarget = null;
+    });
+  }
+
   void onPoiTap(Poi poi) {
     developer.log('Poi ${poi.name} tap.');
+    setState(() {
+      if (infoTarget == poi) {
+        infoTarget = null;
+      } else {
+        infoTarget = poi;
+      }
+    });
   }
 
   void onPoiLongPress(Poi poi) {
     developer.log('Poi ${poi.name} long press.');
+    toggleNavigation(poi);
+  }
+
+  void onPoiInfoNavigate(Poi poi) {
+    developer.log('onPoiInfoNavigate: ${poi.name}');
+    toggleNavigation(poi);
+  }
+
+  void onPoiInfoDistanceTap() {
+    developer.log('onPoiInfoDistanceTap');
+    setState(() {
+      infoTarget = navigationTarget;
+    });
+  }
+
+  void onDeletePoi(Poi toDelete) async {
+    bool confirmed = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(I18N.of(context).areYouSure),
+          content: Text('${I18N.of(context).aboutToDeletePoi}:\n'
+              'Lat: ${toDelete.coords.latitude.toStringAsFixed(6)}\n'
+              'Lng: ${toDelete.coords.latitude.toStringAsFixed(6)}\n'
+              '${toDelete.description ?? ''}'),
+          actions: <Widget>[
+            FlatButton(
+              child: Text(I18N.of(context).yes.toUpperCase()),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+            FlatButton(
+              child: Text(I18N.of(context).no.toUpperCase()),
+              onPressed: () => Navigator.of(context).pop(false),
+            )
+          ],
+        );
+      }
+    );
+    if (!confirmed) {
+      return;
+    }
+    await localPois.delete(toDelete);
+    setState(() {
+      if (infoTarget == toDelete) {
+        infoTarget = null;
+      }
+      if (navigationTarget == toDelete) {
+        navigationTarget = null;
+      }
+    });
+  }
+
+  void toggleNavigation(Poi poi) {
     setState(() {
       if (navigationTarget == poi) {
         navigationTarget = null;

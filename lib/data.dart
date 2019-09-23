@@ -146,6 +146,13 @@ class PoiCollection {
     await save();
   }
 
+  delete(Poi poi) async {
+    if (!pois.remove(poi)) {
+      throw IllegalStateException('Attempted to remove poi that was not in poi collection.');
+    }
+    await save();
+  }
+
   List<Map<String, dynamic>> asGeoJsonList() {
     return pois.map((Poi poi) => poi.asGeoJson()).toList(growable: false);
   }

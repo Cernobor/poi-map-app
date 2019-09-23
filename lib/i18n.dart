@@ -150,6 +150,42 @@ class I18N {
     'clearLocalPois': {
       'cs': 'Odstranit lokální body',
       'en': 'Clear local points'
+    },
+    'stopNavigationButton': {
+      'cs': 'Zastavit navigaci',
+      'en': 'Stop navigation'
+    },
+    'navigateToButton': {
+      'cs': 'Navigovat',
+      'en': 'Navigate'
+    },
+    'deleteButton': {
+      'cs': 'Smazat',
+      'en': 'Delete'
+    },
+    'distance': {
+      'cs': 'Vzdálenost',
+      'en': 'Distance'
+    },
+    'bearing': {
+      'cs': 'Azimut',
+      'en': 'Bearing'
+    },
+    'areYouSure': {
+      'cs': 'Opravdu?',
+      'en': 'Really?'
+    },
+    'yes': {
+      'cs': 'Ano',
+      'en': 'Yes'
+    },
+    'no': {
+      'cs': 'Ne',
+      'en': 'No'
+    },
+    'aboutToDeletePoi': {
+      'cs': 'Smazat lokální bod',
+      'en': 'Delete local point'
     }
   };
 
@@ -188,6 +224,15 @@ class I18N {
   String get upload => _messages['upload'][locale.languageCode];
   String get sync => _messages['sync'][locale.languageCode];
   String get clearLocalPois => _messages['clearLocalPois'][locale.languageCode];
+  String get stopNavigationButton => _messages['stopNavigationButton'][locale.languageCode];
+  String get navigateToButton => _messages['navigateToButton'][locale.languageCode];
+  String get deleteButton => _messages['deleteButton'][locale.languageCode];
+  String get distance => _messages['distance'][locale.languageCode];
+  String get bearing => _messages['bearing'][locale.languageCode];
+  String get areYouSure => _messages['areYouSure'][locale.languageCode];
+  String get yes => _messages['yes'][locale.languageCode];
+  String get no => _messages['no'][locale.languageCode];
+  String get aboutToDeletePoi => _messages['aboutToDeletePoi'][locale.languageCode];
 }
 
 class I18NDelegate extends LocalizationsDelegate<I18N> {
