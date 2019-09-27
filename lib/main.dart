@@ -51,6 +51,9 @@ class MainWidgetState extends State<MainWidget> {
   static const double FALLBACK_MIN_ZOOM = 1;
   static const double FALLBACK_MAX_ZOOM = 18;
   static const Distance distance = Distance();
+  static final Color basePoiColor = Colors.green;
+  static final Color myGlobalPoiColor = Colors.blue;
+  static final Color myLocalPoiColor = Colors.blue.withAlpha(128);
   // "constants"
   final MapController mapController = MapControllerImpl();
   final Location location = Location();
@@ -67,6 +70,7 @@ class MainWidgetState extends State<MainWidget> {
   double currentHeading;
   Poi infoTarget;
   Poi navigationTarget;
+  bool poiListExpanded = false;
 
   // settings
   String mapTilesPath;
@@ -274,7 +278,41 @@ class MainWidgetState extends State<MainWidget> {
               title: Text(I18N.of(context).clearLocalPois),
               leading: Icon(Icons.clear),
               onTap: () => onClearLocalPois()
-          )
+          ),
+          ExpansionTile(
+            title: Text(I18N.of(context).poiListTitle),
+            leading: Icon(Icons.place),
+            onExpansionChanged: (bool expanded) {
+              setState(() {
+                poiListExpanded = expanded;
+              });
+            },
+            initiallyExpanded: poiListExpanded,
+            children: localPois.pois.map((Poi poi) => ListTile(
+              title: Text('${poi.name} (${authors[poi.authorId]})'),
+              subtitle: Text('Lat: ${poi.coords.latitude.toStringAsFixed(6)}\nLng: ${poi.coords.longitude.toStringAsFixed(6)} '),
+              leading: Icon(Icons.place, color: myLocalPoiColor,),
+              trailing: poi == navigationTarget ? Icon(Icons.navigation) : null,
+              isThreeLine: true,
+              selected: poi == infoTarget,
+              onTap: () {
+                this.onPoiTap(poi);
+                Navigator.of(context).pop();
+              },
+            )).toList(growable: false) +
+            globalPois.pois.map((Poi poi) => ListTile(
+              title: Text('${poi.name} (${authors[poi.authorId]})'),
+              subtitle: Text('Lat: ${poi.coords.latitude.toStringAsFixed(6)}\nLng: ${poi.coords.longitude.toStringAsFixed(6)} '),
+              leading: Icon(Icons.place, color: poi.authorId == settings.id ? myGlobalPoiColor : basePoiColor,),
+              trailing: poi == navigationTarget ? Icon(Icons.navigation) : null,
+              isThreeLine: true,
+              selected: poi == infoTarget,
+              onTap: () {
+                this.onPoiTap(poi);
+                Navigator.of(context).pop();
+              },
+            )).toList(growable: false),
+          ),
         ],
       ),
     );
@@ -406,8 +444,7 @@ class MainWidgetState extends State<MainWidget> {
   }
 
   List<Marker> createMarkers(data.PoiCollection pois) {
-    Color baseColor = Colors.green;
-    Color myColor = pois == globalPois ? Colors.blue : Colors.blue.withAlpha(128);
+    Color myColor = pois == globalPois ? myGlobalPoiColor : myLocalPoiColor;
     return pois.pois.map((Poi poi) => Marker(
       point: poi.coords,
       anchorPos: AnchorPos.align(AnchorAlign.top),
@@ -420,7 +457,7 @@ class MainWidgetState extends State<MainWidget> {
           child: Icon(
             Icons.place,
             size: 50.0 * (poi == infoTarget ? 1.5 : 1),
-            color: poi.authorId == settings.id ? myColor : baseColor,
+            color: poi.authorId == settings.id ? myColor : basePoiColor,
           )
         ),
       ),

@@ -190,6 +190,10 @@ class I18N {
     'centerViewPoiInfoButton': {
       'cs': 'Vycentrovat mapu',
       'en': 'Center map'
+    },
+    'poiListTitle': {
+      'cs': 'Seznam bodů',
+      'en': 'Point list'
     }
   };
 
@@ -238,6 +242,7 @@ class I18N {
   String get no => _messages['no'][locale.languageCode];
   String get aboutToDeletePoi => _messages['aboutToDeletePoi'][locale.languageCode];
   String get centerViewPoiInfoButton => _messages['centerViewPoiInfoButton'][locale.languageCode];
+  String get poiListTitle => _messages['poiListTitle'][locale.languageCode];
 }
 
 class I18NDelegate extends LocalizationsDelegate<I18N> {
