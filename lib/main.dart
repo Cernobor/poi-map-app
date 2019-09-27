@@ -73,6 +73,7 @@ class MainWidgetState extends State<MainWidget> {
   ServerSettings settings;
   PoiCollection localPois = PoiCollection('local', <Poi>[]);
   PoiCollection globalPois = PoiCollection('global', <Poi>[]);
+  Authors authors = data.Authors();
   data.MapState mapState = data.MapState();
   MapLimits mapLimits;
 
@@ -105,6 +106,13 @@ class MainWidgetState extends State<MainWidget> {
         developer.log(e.toString());
         scaffoldKey.currentState.showSnackBar(SnackBar(
           content: Text('TODO global'),
+          duration: Duration(seconds: 5),
+        ));
+      }),
+      authors.load().catchError((e) {
+        developer.log(e.toString());
+        scaffoldKey.currentState.showSnackBar(SnackBar(
+          content: Text('TODO authors'),
           duration: Duration(seconds: 5),
         ));
       }),
@@ -390,31 +398,33 @@ class MainWidgetState extends State<MainWidget> {
             ]
           ),
         // POIs
-        MarkerLayerOptions(
-            markers: (globalPois.pois + localPois.pois).map((Poi poi) {
-              return Marker(
-                point: poi.coords,
-                anchorPos: AnchorPos.align(AnchorAlign.top),
-                width: 50.0 * (poi == infoTarget ? 1.5 : 1),
-                height: 46.0 * (poi == infoTarget ? 1.5 : 1),
-                builder: (context) {
-                  return Container(
-                      child: GestureDetector(
-                        onTap: () => this.onPoiTap(poi),
-                        onLongPress: () => this.onPoiLongPress(poi),
-                        child: Icon(
-                            Icons.place,
-                            size: 50.0 * (poi == infoTarget ? 1.5 : 1),
-                            color: poi.id == null ? Colors.blue : Colors.red),
-                      )
-                  );
-                },
-              );
-            }).toList(growable: false)
-        ),
+        MarkerLayerOptions(markers: createMarkers(globalPois)),
+        MarkerLayerOptions(markers: createMarkers(localPois)),
       ],
       mapController: mapController,
     );
+  }
+
+  List<Marker> createMarkers(data.PoiCollection pois) {
+    Color baseColor = Colors.green;
+    Color myColor = pois == globalPois ? Colors.blue : Colors.blue.withAlpha(128);
+    return pois.pois.map((Poi poi) => Marker(
+      point: poi.coords,
+      anchorPos: AnchorPos.align(AnchorAlign.top),
+      width: 50.0 * (poi == infoTarget ? 1.5 : 1),
+      height: 46.0 * (poi == infoTarget ? 1.5 : 1),
+      builder: (context) => Container(
+        child: GestureDetector(
+          onTap: () => this.onPoiTap(poi),
+          onLongPress: () => this.onPoiLongPress(poi),
+          child: Icon(
+            Icons.place,
+            size: 50.0 * (poi == infoTarget ? 1.5 : 1),
+            color: poi.authorId == settings.id ? myColor : baseColor,
+          )
+        ),
+      ),
+    )).toList(growable: false);
   }
 
   Widget createPoiInfoContentDistance(BuildContext context) {
@@ -470,7 +480,7 @@ class MainWidgetState extends State<MainWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(infoTarget.name, style: Theme.of(context).textTheme.title),
+                    Text('${infoTarget.name} (${authors[infoTarget.authorId]})', style: Theme.of(context).textTheme.title),
                     Text('$latStr $lngStr', style: Theme.of(context).textTheme.caption),
                     if (isNavigating)
                       Text('$distStr $brgStr', style: Theme.of(context).textTheme.caption),
@@ -829,20 +839,24 @@ class MainWidgetState extends State<MainWidget> {
   void onDownload() async {
     developer.log('onDownload');
     List<Poi> pois;
+    Map<int, String> authors;
     try {
-      pois = await comm.download(settings.serverAddress);
+      var data = await comm.downloadPoiData(settings.serverAddress);
+      authors = data.a;
+      pois = data.b;
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
     }
     await globalPois.set(pois);
+    await this.authors.set(authors);
     setState(() {});
   }
 
   void onUpload() async {
     developer.log('onUpload');
     try {
-      await comm.upload(settings.serverAddress, localPois);
+      await comm.uploadPois(settings.serverAddress, localPois);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
@@ -854,20 +868,24 @@ class MainWidgetState extends State<MainWidget> {
   void onSync() async {
     developer.log('onSync');
     try {
-      await comm.upload(settings.serverAddress, localPois);
+      await comm.uploadPois(settings.serverAddress, localPois);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
     }
     List<Poi> pois;
+    Map<int, String> authors;
     try {
-      pois = await comm.download(settings.serverAddress);
+      var data = await comm.downloadPoiData(settings.serverAddress);
+      authors = data.a;
+      pois = data.b;
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
     }
     await globalPois.set(pois);
     await localPois.set([]);
+    await this.authors.set(authors);
     setState(() {});
   }
 

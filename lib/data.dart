@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -160,6 +161,34 @@ class PoiCollection {
   List<Map<String, dynamic>> asMapList() {
     return pois.map((Poi poi) => poi.asMap()).toList(growable: false);
   }
+}
+
+class Authors {
+  final Map<int, String> _authors;
+
+  Authors() : _authors = HashMap();
+
+  save() async {
+    final path = await _localPath;
+    final file = File('$path/authors.json');
+    file.writeAsString(encoder.convert(_authors.map((int id, String name) => MapEntry<String, String>(id.toString(), name))));
+  }
+
+  Future<void> load() async {
+    final path = await _localPath;
+    final file = File('$path/authors.json');
+    Map<String, String> data = jsonDecode(await file.readAsString());
+    _authors.clear();
+    _authors.addAll(data.map((String id, String name) => MapEntry<int, String>(int.parse(id), name)));
+  }
+
+  set(Map<int, String> authors) async {
+    this._authors.clear();
+    this._authors.addAll(authors);
+    await save();
+  }
+
+  String operator[](int authorId) => _authors[authorId];
 }
 
 class MapState {

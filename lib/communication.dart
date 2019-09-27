@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -119,13 +120,20 @@ Future<Tuple<int, http.ByteStream>> downloadMap(String serverAddress, String til
   return Tuple(res.contentLength, res.stream);
 }
 
-Future<List<Poi>> download(String serverAddress) async {
-  var uri = Uri.http(_cleanupAddress(serverAddress), 'poi');
-  var data = await _handle(uri) as List;
-  return data.cast<Map<String, dynamic>>().map((Map<String, dynamic> poi) => Poi.fromGeoJson(poi)).toList(growable: false);
+Future<Tuple<Map<int, String>, List<Poi>>> downloadPoiData(String serverAddress) async {
+  var uri = Uri.http(_cleanupAddress(serverAddress), 'data', {'data': 'pois,authors'});
+  var data = await _handle(uri) as Map;
+  Map<String, dynamic> castData = data.cast<String, dynamic>();
+  Map<int, String> authorsData = HashMap.fromEntries(
+      (castData['authors'] as List)
+          .cast<Map<String, dynamic>>()
+          .map((m) => MapEntry<int, String>(m['id'], m['name']))
+  );
+  List<Poi> pois = (castData['pois'] as List).cast<Map<String, dynamic>>().map((Map<String, dynamic> poi) => Poi.fromGeoJson(poi)).toList(growable: false);
+  return Tuple(authorsData, pois);
 }
 
-Future<void> upload(String serverAddress, PoiCollection collection) async {
+Future<void> uploadPois(String serverAddress, PoiCollection collection) async {
   var uri = Uri.http(_cleanupAddress(serverAddress), 'poi');
   await _handle(uri,
     method: Method.POST,
