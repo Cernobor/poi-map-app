@@ -186,6 +186,10 @@ class I18N {
     'aboutToDeletePoi': {
       'cs': 'Smazat lokální bod',
       'en': 'Delete local point'
+    },
+    'centerViewPoiInfoButton': {
+      'cs': 'Vycentrovat mapu',
+      'en': 'Center map'
     }
   };
 
@@ -233,6 +237,7 @@ class I18N {
   String get yes => _messages['yes'][locale.languageCode];
   String get no => _messages['no'][locale.languageCode];
   String get aboutToDeletePoi => _messages['aboutToDeletePoi'][locale.languageCode];
+  String get centerViewPoiInfoButton => _messages['centerViewPoiInfoButton'][locale.languageCode];
 }
 
 class I18NDelegate extends LocalizationsDelegate<I18N> {

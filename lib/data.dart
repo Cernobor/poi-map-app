@@ -166,7 +166,7 @@ class PoiCollection {
 class Authors {
   final Map<int, String> _authors;
 
-  Authors() : _authors = HashMap();
+  Authors() : _authors = HashMap<int, String>();
 
   save() async {
     final path = await _localPath;
@@ -177,9 +177,10 @@ class Authors {
   Future<void> load() async {
     final path = await _localPath;
     final file = File('$path/authors.json');
-    Map<String, String> data = jsonDecode(await file.readAsString());
+    var str = file.readAsStringSync();
+    Map data = jsonDecode(str);
     _authors.clear();
-    _authors.addAll(data.map((String id, String name) => MapEntry<int, String>(int.parse(id), name)));
+    _authors.addAll(data.cast<String, String>().map((String id, String name) => MapEntry<int, String>(int.parse(id), name)));
   }
 
   set(Map<int, String> authors) async {

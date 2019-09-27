@@ -492,33 +492,34 @@ class MainWidgetState extends State<MainWidget> {
                     padding: EdgeInsets.only(left: 16.0, right: 16.0, bottom: 4.0),
                     child: Text(infoTarget.description)
                 ),
-              if (currentLocation != null || infoTarget.id == null)
-                Container(
-                  padding: EdgeInsets.zero,
-                  height: 30,
-                  margin: EdgeInsets.zero,
-                  child: ButtonTheme.bar(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (currentLocation != null)
-                          FlatButton(
-                            child: Text(
-                                (navigationTarget == infoTarget ? I18N.of(context).stopNavigationButton : I18N.of(context).navigateToButton).toUpperCase()
-                            ),
-                            onPressed: () => this.onPoiInfoNavigate(infoTarget),
-                          ),
-                        if (infoTarget.id == null)
-                          MaterialButton(
-                            child: Text(I18N.of(context).deleteButton.toUpperCase()),
-                            onPressed: () => this.onDeletePoi(infoTarget),
-                          )
-                      ],
-                    ),
-                  )
+              Container(
+                padding: EdgeInsets.zero,
+                height: 30,
+                margin: EdgeInsets.zero,
+                child: ButtonTheme.bar(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      MaterialButton(
+                        child: Text(
+                            (navigationTarget == infoTarget ? I18N.of(context).stopNavigationButton : I18N.of(context).navigateToButton).toUpperCase()
+                        ),
+                        onPressed: currentLocation == null ? null : () => this.onPoiInfoNavigate(infoTarget),
+                      ),
+                      MaterialButton(
+                        child: Text(I18N.of(context).deleteButton.toUpperCase()),
+                        onPressed: infoTarget.id != null ? null : () => this.onDeletePoi(infoTarget),
+                      ),
+                      MaterialButton(
+                        child: Text(I18N.of(context).centerViewPoiInfoButton.toUpperCase()),
+                        onPressed: () => this.onCenterViewPoi(infoTarget),
+                      )
+                    ],
+                  ),
                 )
+              )
             ]
           )
         )
@@ -989,6 +990,10 @@ class MainWidgetState extends State<MainWidget> {
         navigationTarget = null;
       }
     });
+  }
+
+  void onCenterViewPoi(Poi target) {
+    mapController.move(target.coords, mapController.zoom);
   }
 
   void toggleNavigation(Poi poi) {
