@@ -4,7 +4,10 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:poi_map_app/data.dart';
+import 'package:poi_map_app/urls/urls.dart';
 import 'package:poi_map_app/utils.dart';
+
+UriCreator uriCreator = UriCreator();
 
 class CommException implements Exception {
   final Uri uri;
@@ -47,13 +50,17 @@ enum Method {
 
 Future<dynamic> _handle(Uri uri, {Method method = Method.GET, Map<String, String> headers, dynamic body}) async {
   http.Response res;
-  switch (method) {
-    case Method.GET:
-      res = await http.get(uri, headers: headers);
-      break;
-    case Method.POST:
-      res = await http.post(uri, headers: headers, body: body);
-      break;
+  try {
+    switch (method) {
+      case Method.GET:
+        res = await http.get(uri, headers: headers);
+        break;
+      case Method.POST:
+        res = await http.post(uri, headers: headers, body: body);
+        break;
+    }
+  } on Exception catch (e) {
+    throw CommException(uri, e.toString(), null);
   }
   if (res.statusCode == HttpStatus.ok) {
     if (res.body.isEmpty) {
@@ -95,13 +102,13 @@ String _cleanupAddress(String address) {
 }
 
 Future<HandshakeResponse> handshake(String serverAddress, String name, bool exists) async {
-  var uri = Uri.http(_cleanupAddress(serverAddress), 'handshake', {'name': name, 'exists': exists ? '1' : '0'});
+  var uri = uriCreator.handshakeUri(serverAddress, name, exists);
   var data = await _handle(uri) as Map<String, dynamic>;
   return HandshakeResponse.fromJson(data);
 }
 
 Future<bool> ping(String serverAddress) async {
-  var uri = Uri.http(_cleanupAddress(serverAddress), 'ping');
+  var uri = uriCreator.pingUri(serverAddress);
   try {
     await _handleVoid(uri);
     return true;
@@ -121,7 +128,7 @@ Future<Tuple<int, http.ByteStream>> downloadMap(String serverAddress, String til
 }
 
 Future<Tuple<Map<int, String>, List<Poi>>> downloadPoiData(String serverAddress) async {
-  var uri = Uri.http(_cleanupAddress(serverAddress), 'data', {'data': 'pois,authors'});
+  var uri = uriCreator.poiData(serverAddress);
   var data = await _handle(uri) as Map;
   Map<String, dynamic> castData = data.cast<String, dynamic>();
   Map<int, String> authorsData = HashMap.fromEntries(

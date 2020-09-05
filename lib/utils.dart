@@ -57,15 +57,23 @@ class Range<T extends num> {
   }
 }
 
-Future<void> commErrorDialog(CommException e, BuildContext context) async {
-  var errorText = e.name;
-  switch (e.name) {
-    case CommException.nameNotSupplied:
-      errorText = I18N.of(context).commErrorNameNotSupplied;
-      break;
-    case CommException.nameAlreadyExists:
-      errorText = I18N.of(context).commErrorNameAlreadyExists;
-      break;
+Future<void> commErrorDialog(Exception e, BuildContext context) async {
+  String errorText;
+  String subText;
+  if (e is CommException) {
+    errorText = e.name;
+    switch (e.name) {
+      case CommException.nameNotSupplied:
+        errorText = I18N.of(context).commErrorNameNotSupplied;
+        break;
+      case CommException.nameAlreadyExists:
+        errorText = I18N.of(context).commErrorNameAlreadyExists;
+        break;
+    }
+    subText = '\n${e.uri}\n${e.fullError.toString()}';
+  } else {
+    errorText = 'Unknown exception';
+    subText = e.toString();
   }
   await showDialog(
     context: context,
@@ -80,7 +88,7 @@ Future<void> commErrorDialog(CommException e, BuildContext context) async {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(errorText),
-            Text('\n${e.uri}', style: TextStyle(fontFamily: 'monospace', fontSize: 10),),
+            Text(subText, style: TextStyle(fontFamily: 'monospace', fontSize: 10),),
           ],
         ),
         actions: <Widget>[

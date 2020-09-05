@@ -4,15 +4,14 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong/latlong.dart';
-import 'package:more/math.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:poi_map_app/utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ServerSettings {
-  static const String _FILE = 'serverSettings.json';
-
   final String serverAddress;
   final String name;
   final int id;
@@ -21,26 +20,26 @@ class ServerSettings {
   ServerSettings({this.serverAddress, this.name, this.id, this.tilePackPath});
 
   static Future<ServerSettings> load() async {
-    final path = await _localPath;
-    final file = File('$path/$_FILE');
-    Map<String, dynamic> data = jsonDecode(await file.readAsString());
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String settings = prefs.getString('setting');
+    if (settings == null) {
+      return null;
+    }
+    Map<String, dynamic> data = jsonDecode(settings);
     return ServerSettings(
-      serverAddress: data['serverAddress'],
-      name: data['name'],
-      id: data['id'],
-      tilePackPath: data['tilePackPath']
+        serverAddress: data['serverAddress'],
+        name: data['name'],
+        id: data['id'],
+        tilePackPath: data['tilePackPath']
     );
   }
 
   save() async {
-    final path = await _localPath;
-    final file = File('$path/$_FILE');
-    file.writeAsString(encoder.convert({
-      'serverAddress': serverAddress,
-      'name': name,
-      'id': id,
-      'tilePackPath': tilePackPath
-    }));
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('serverAddress', serverAddress);
+    prefs.setString('name', name);
+    prefs.setInt('id', id);
+    prefs.setString('tilePackPath', tilePackPath);
   }
 
   @override
@@ -62,8 +61,9 @@ class MapLimits {
 
   LatLngBounds get latLngBounds => LatLngBounds(LatLng(lat.min, lng.min), LatLng(lat.max, lng.max));
 
-  static _y2lat(int y, double trz) => atan(sinh(pi - 2 * pi * y / trz)) * 180 / pi;
+  static _y2lat(int y, double trz) => atan(_sinh(pi - 2 * pi * y / trz)) * 180 / pi;
   static _x2lng(int x, double trz) => x * 360 / trz - 180;
+  static _sinh(double x) => (exp(x) - exp(-x)) / 2;
 }
 
 class Poi {
@@ -123,15 +123,17 @@ class PoiCollection {
   PoiCollection(this.name, this.pois);
 
   save() async {
-    final path = await _localPath;
-    final file = File('$path/pois-$name.json');
-    file.writeAsString(encoder.convert(asGeoJsonList()));
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('pois-$name', encoder.convert(asGeoJsonList()));
   }
 
   Future<void> load() async {
-    final path = await _localPath;
-    final file = File('$path/pois-$name.json');
-    List<dynamic> data = jsonDecode(await file.readAsString());
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String raw = prefs.getString('pois-$name');
+    if (raw == null) {
+      return;
+    }
+    List<dynamic> data = jsonDecode(raw);
     pois.clear();
     pois.addAll(data.map((p) => Poi.fromGeoJson(p as Map<String, dynamic>)));
   }
@@ -169,16 +171,17 @@ class Authors {
   Authors() : _authors = HashMap<int, String>();
 
   save() async {
-    final path = await _localPath;
-    final file = File('$path/authors.json');
-    file.writeAsString(encoder.convert(_authors.map((int id, String name) => MapEntry<String, String>(id.toString(), name))));
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('authors', encoder.convert(_authors.map((int id, String name) => MapEntry<String, String>(id.toString(), name))));
   }
 
   Future<void> load() async {
-    final path = await _localPath;
-    final file = File('$path/authors.json');
-    var str = file.readAsStringSync();
-    Map data = jsonDecode(str);
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String raw = prefs.getString('authors');
+    if (raw == null) {
+      return;
+    }
+    Map data = jsonDecode(raw);
     _authors.clear();
     _authors.addAll(data.cast<String, String>().map((String id, String name) => MapEntry<int, String>(int.parse(id), name)));
   }
@@ -193,7 +196,6 @@ class Authors {
 }
 
 class MapState {
-  static const String _FILE = 'mapState.json';
   LatLng _center;
   int _zoom;
 
@@ -201,17 +203,19 @@ class MapState {
   MapState._(this._center, this._zoom);
 
   Future<void> load() async {
-    final path = await _localPath;
-    final file = File('$path/$_FILE');
-    Map<String, dynamic> data = jsonDecode(await file.readAsString());
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String raw = prefs.getString('mapState');
+    if (raw == null) {
+      return;
+    }
+    Map<String, dynamic> data = jsonDecode(raw);
     _center = LatLng(data['lat'], data['lng']);
     _zoom = data['zoom'];
   }
 
   save() async {
-    final path = await _localPath;
-    final file = File('$path/$_FILE');
-    file.writeAsString(encoder.convert({
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('mapState', encoder.convert({
       'lat': _center.latitude,
       'lng': _center.longitude,
       'zoom': _zoom
@@ -274,11 +278,17 @@ String _getMapPath(String basePath) {
 }
 
 Future<String> getMapPath() async {
+  if (kIsWeb) {
+    return null;
+  }
   final path = await _localPath;
   return '$path/mapData';
 }
 
 Future<MapLimits> getMapLimits() async {
+  if (kIsWeb) {
+    return null;
+  }
   final mapPath = _getMapPath(await _localPath);
   Range<int> minMaxZ = await Directory(mapPath).list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)

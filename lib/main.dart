@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -86,61 +87,73 @@ class MainWidgetState extends State<MainWidget> {
   @override
   void initState() {
     super.initState();
-    init = Future.delayed(Duration(seconds: 5), () => Future.wait([
-      ServerSettings.load().then((ServerSettings settings) {
-        setState(() {
-          this.settings = settings;
-          startPinging();
-        });
-      }).catchError((e) {
-        developer.log(e.toString());
-        scaffoldKey.currentState.showSnackBar(SnackBar(
-          content: Text('TODO settings'),
-          duration: Duration(seconds: 5),
-        ));
-      }),
-      localPois.load().catchError((e) {
-        developer.log(e.toString());
-        scaffoldKey.currentState.showSnackBar(SnackBar(
-          content: Text('TODO local'),
-          duration: Duration(seconds: 5),
-        ));
-      }),
-      globalPois.load().catchError((e) {
-        developer.log(e.toString());
-        scaffoldKey.currentState.showSnackBar(SnackBar(
-          content: Text('TODO global'),
-          duration: Duration(seconds: 5),
-        ));
-      }),
-      authors.load().catchError((e) {
-        developer.log(e.toString());
-        scaffoldKey.currentState.showSnackBar(SnackBar(
-          content: Text('TODO authors'),
-          duration: Duration(seconds: 5),
-        ));
-      }),
-      mapState.load().then((_) {
-        mapController.move(mapState.center, mapState.zoom.toDouble());
-      }).catchError((e) {
-        developer.log(e.toString());
-      }),
-      getMapPath().then((String path) {
-        developer.log('Map path: $path');
-        setState(() {
-          mapTilesPath = path;
-        });
-      }),
-      getMapLimits().then((MapLimits mapLimits) {
-        this.mapLimits = mapLimits;
-      }).catchError((e) {
-        developer.log(e.toString());
-        scaffoldKey.currentState.showSnackBar(SnackBar(
-          content: Text('TODO map limits'),
-          duration: Duration(seconds: 5),
-        ));
-      })
-    ]));
+    init = Future.delayed(Duration(seconds: 5), ()
+    {
+      return Future.wait([
+        ServerSettings.load().then((ServerSettings settings) {
+          setState(() {
+            this.settings = settings;
+            startPinging();
+          });
+        }).catchError((e) {
+          developer.log(e.toString());
+          scaffoldKey.currentState.showSnackBar(SnackBar(
+            content: Text('TODO settings ${e.toString()}'),
+            duration: Duration(seconds: 5),
+          ));
+        }),
+        localPois.load().catchError((e) {
+          developer.log(e.toString());
+          scaffoldKey.currentState.showSnackBar(SnackBar(
+            content: Text('TODO local ${e.toString()}'),
+            duration: Duration(seconds: 5),
+          ));
+        }),
+        globalPois.load().catchError((e) {
+          developer.log(e.toString());
+          scaffoldKey.currentState.showSnackBar(SnackBar(
+            content: Text('TODO global ${e.toString()}'),
+            duration: Duration(seconds: 5),
+          ));
+        }),
+        authors.load().catchError((e) {
+          developer.log(e.toString());
+          scaffoldKey.currentState.showSnackBar(SnackBar(
+            content: Text('TODO authors ${e.toString()}'),
+            duration: Duration(seconds: 5),
+          ));
+        }),
+        mapState.load().then((_) {
+          //mapController.move(mapState.center, mapState.zoom.toDouble());
+        }).catchError((e) {
+          developer.log(e.toString());
+          scaffoldKey.currentState.showSnackBar(SnackBar(
+            content: Text('TODO map state ${e.toString()}'),
+            duration: Duration(seconds: 5),
+          ));
+        }),
+        getMapPath().then((String path) {
+          developer.log('Map path: $path');
+          setState(() {
+            mapTilesPath = path;
+          });
+        }),
+        getMapLimits().then((MapLimits mapLimits) {
+          this.mapLimits = mapLimits;
+        }).catchError((e) {
+          developer.log(e.toString());
+          scaffoldKey.currentState.showSnackBar(SnackBar(
+            content: Text('TODO map limits'),
+            duration: Duration(seconds: 5),
+          ));
+        })/**/
+      ]).then((value) {
+        developer.log('value: $value');
+        return true;
+      }).catchError((err) {
+        developer.log('error: $err');
+      });
+    });
   }
 
   @override
@@ -149,21 +162,24 @@ class MainWidgetState extends State<MainWidget> {
       future: init,
       initialData: false,
       builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-        if (snapshot.data == false) {
-          return Container(
-            child: Center(
-              child: Image(
-                image: AssetImage('assets/splash.png'),
-                width: 320.0,
-                height: 362.0,
-              ),
-            ),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor
-            ),
-          );
+        developer.log('connectionState: ${snapshot.connectionState}');
+        developer.log('data: ${snapshot.data}');
+        developer.log('error: ${snapshot.error}');
+        if (snapshot.data == true) {
+          return createUi(context);
         }
-        return createUi(context);
+        return Container(
+          child: Center(
+            child: Image(
+              image: AssetImage('assets/splash.png'),
+              width: 320.0,
+              height: 362.0,
+            ),
+          ),
+          decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor
+          ),
+        );
       }
     );
   }
@@ -737,7 +753,7 @@ class MainWidgetState extends State<MainWidget> {
   void onToggleLocationContinuous() {
     if (locationSubscription == null) {
       locationSubscription =
-          location.onLocationChanged().listen((LocationData loc) {
+          location.onLocationChanged.listen((LocationData loc) {
             //developer.log('Continuous location: ${loc.latitude} ${loc.longitude}');
             setState(() {
               currentLocation = LatLng(loc.latitude, loc.longitude);
@@ -776,13 +792,13 @@ class MainWidgetState extends State<MainWidget> {
     );
     if (settings == null) {
       developer.log('no settings');
-      return;
+    } else {
+      developer.log(settings.toString());
+      setState(() {
+        this.settings = settings;
+        this.settings.save();
+      });
     }
-    developer.log(settings.toString());
-    setState(() {
-      this.settings = settings;
-      this.settings.save();
-    });
     startPinging();
   }
 
@@ -799,6 +815,10 @@ class MainWidgetState extends State<MainWidget> {
   }
 
   void startPinging() {
+    if (this.settings == null) {
+      developer.log('No settings, cannot start pinging.');
+      return;
+    }
     onPing();
     Future.doWhile(() {
       if (settings == null) {

@@ -1,5 +1,5 @@
 name: poi_map_app
-description: A new Flutter project.
+description: POI mapping app for Černobor.
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -26,16 +26,17 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^0.1.2
-  flutter_map: ^0.7.2
-  location: ^2.3.5
-  qr_code_scanner: ^0.0.12
+  flutter_map: ^0.10.1+1
+  location: ^3.0.2
+  qr_code_scanner: ^0.0.13
   json_schema: ^2.2.1
-  http: ^0.12.0+2
-  path_provider: ^1.2.2
-  archive: ^2.0.10
+  http: ^0.12.2
+  path_provider: ^1.6.14
+  archive: ^2.0.13
   transparent_image: ^1.0.0
-  flutter_compass: ^0.3.2
-  more: ^1.18.0
+  flutter_compass: ^0.4.3
+  more: ^2.7.0
+  shared_preferences: ^0.5.10
 
 dev_dependencies:
   flutter_test:

@@ -180,6 +180,9 @@ class _PairingDialogState extends State<PairingDialog> {
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
+    } on Exception catch (e) {
+      await commErrorDialog(e, context);
+      return;
     }
     Navigator.of(context).pop(ServerSettings(
       serverAddress: serverAddress,
