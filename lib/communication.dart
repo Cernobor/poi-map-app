@@ -5,14 +5,13 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:poi_map_app/data.dart';
 import 'package:poi_map_app/urls/urls.dart';
-import 'package:poi_map_app/utils.dart';
 
 UriCreator uriCreator = UriCreator();
 
 class CommException implements Exception {
   final Uri uri;
   final String name;
-  final Map<String, dynamic> fullError;
+  final Map<String, dynamic> ?fullError;
 
   CommException(this.uri, this.name, this.fullError);
 
@@ -48,7 +47,7 @@ enum Method {
   GET, POST
 }
 
-Future<dynamic> _handle(Uri uri, {Method method = Method.GET, Map<String, String> headers, dynamic body}) async {
+Future<dynamic> _handle(Uri uri, {Method method = Method.GET, Map<String, String>? headers, dynamic body}) async {
   http.Response res;
   try {
     switch (method) {
@@ -77,7 +76,7 @@ Future<dynamic> _handle(Uri uri, {Method method = Method.GET, Map<String, String
   }
 }
 
-Future<void> _handleVoid(Uri uri, {Method method = Method.GET, Map<String, String> headers, dynamic body}) async {
+Future<void> _handleVoid(Uri uri, {Method method = Method.GET, Map<String, String>? headers, dynamic body}) async {
   http.Response res;
   switch (method) {
     case Method.GET:
@@ -117,17 +116,31 @@ Future<bool> ping(String serverAddress) async {
   }
 }
 
-Future<Tuple<int, http.ByteStream>> downloadMap(String serverAddress, String tilePackPath) async {
+class MapData {
+  int? contentLength;
+  http.ByteStream dataStream;
+
+  MapData(this.contentLength, this.dataStream);
+}
+
+Future<MapData> downloadMap(String serverAddress, String tilePackPath) async {
   var uri = Uri.http(_cleanupAddress(serverAddress), tilePackPath);
   var req = http.Request('GET', uri);
   var res = await req.send();
   if (res.statusCode != HttpStatus.ok) {
     throw CommException(uri, 'Request refused. Code: ${res.statusCode}', null);
   }
-  return Tuple(res.contentLength, res.stream);
+  return MapData(res.contentLength, res.stream);
 }
 
-Future<Tuple<Map<int, String>, List<Poi>>> downloadPoiData(String serverAddress) async {
+class PoiData {
+  Map<int, String> authorsData;
+  List<Poi> pois;
+
+  PoiData(this.authorsData, this.pois);
+}
+
+Future<PoiData> downloadPoiData(String serverAddress) async {
   var uri = uriCreator.poiData(serverAddress);
   var data = await _handle(uri) as Map;
   Map<String, dynamic> castData = data.cast<String, dynamic>();
@@ -137,7 +150,7 @@ Future<Tuple<Map<int, String>, List<Poi>>> downloadPoiData(String serverAddress)
           .map((m) => MapEntry<int, String>(m['id'], m['name']))
   );
   List<Poi> pois = (castData['pois'] as List).cast<Map<String, dynamic>>().map((Map<String, dynamic> poi) => Poi.fromGeoJson(poi)).toList(growable: false);
-  return Tuple(authorsData, pois);
+  return PoiData(authorsData, pois);
 }
 
 Future<void> uploadPois(String serverAddress, PoiCollection collection) async {

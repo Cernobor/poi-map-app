@@ -6,7 +6,7 @@ import 'dart:math';
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong/latlong.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:poi_map_app/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,11 +17,11 @@ class ServerSettings {
   final int id;
   final String tilePackPath;
 
-  ServerSettings({this.serverAddress, this.name, this.id, this.tilePackPath});
+  ServerSettings({required this.serverAddress, required this.name, required this.id, required this.tilePackPath});
 
-  static Future<ServerSettings> load() async {
+  static Future<ServerSettings?> load() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String settings = prefs.getString('setting');
+    String? settings = prefs.getString('setting');
     if (settings == null) {
       return null;
     }
@@ -56,10 +56,10 @@ class MapLimits {
   final Range<double> lng;
 
   MapLimits(this.zoom, this.x, this.y)
-    : lat = Range(_y2lat(y.max, pow(2.0, zoom.max)), _y2lat(y.min, pow(2.0, zoom.max)))
-    , lng = Range(_x2lng(x.min, pow(2.0, zoom.max)), _x2lng(x.max, pow(2.0, zoom.max)));
+    : lat = Range(_y2lat(y.max!, pow(2.0, zoom.max!).toDouble()), _y2lat(y.min!, pow(2.0, zoom.max!).toDouble()))
+    , lng = Range(_x2lng(x.min!, pow(2.0, zoom.max!).toDouble()), _x2lng(x.max!, pow(2.0, zoom.max!).toDouble()));
 
-  LatLngBounds get latLngBounds => LatLngBounds(LatLng(lat.min, lng.min), LatLng(lat.max, lng.max));
+  LatLngBounds get latLngBounds => LatLngBounds(LatLng(lat.min!, lng.min!), LatLng(lat.max!, lng.max!));
 
   static _y2lat(int y, double trz) => atan(_sinh(pi - 2 * pi * y / trz)) * 180 / pi;
   static _x2lng(int x, double trz) => x * 360 / trz - 180;
@@ -67,7 +67,7 @@ class MapLimits {
 }
 
 class Poi {
-  final int id;
+  final int ?id;
   final int authorId;
   final String name;
   final String description;
@@ -129,7 +129,7 @@ class PoiCollection {
 
   Future<void> load() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String raw = prefs.getString('pois-$name');
+    String? raw = prefs.getString('pois-$name');
     if (raw == null) {
       return;
     }
@@ -177,7 +177,7 @@ class Authors {
 
   Future<void> load() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String raw = prefs.getString('authors');
+    String? raw = prefs.getString('authors');
     if (raw == null) {
       return;
     }
@@ -192,25 +192,23 @@ class Authors {
     await save();
   }
 
-  String operator[](int authorId) => _authors[authorId];
+  String? operator[](int authorId) => _authors[authorId];
 }
 
 class MapState {
   LatLng _center;
   int _zoom;
 
-  MapState() : _center = null, _zoom = null;
   MapState._(this._center, this._zoom);
 
-  Future<void> load() async {
+  static Future<MapState?> load() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String raw = prefs.getString('mapState');
+    String? raw = prefs.getString('mapState');
     if (raw == null) {
-      return;
+      return null;
     }
     Map<String, dynamic> data = jsonDecode(raw);
-    _center = LatLng(data['lat'], data['lng']);
-    _zoom = data['zoom'];
+    return MapState._(LatLng(data['lat'], data['lng']), data['zoom']);
   }
 
   save() async {
@@ -225,7 +223,7 @@ class MapState {
   LatLng get center => _center;
   int get zoom => _zoom;
 
-  Future<void> set({LatLng center, int zoom}) async {
+  Future<void> set({LatLng? center, int? zoom}) async {
     bool changed = false;
     if (center != null && center != _center) {
       _center = center;
@@ -277,7 +275,7 @@ String _getMapPath(String basePath) {
   return '$basePath/mapData';
 }
 
-Future<String> getMapPath() async {
+Future<String?> getMapPath() async {
   if (kIsWeb) {
     return null;
   }
@@ -285,35 +283,47 @@ Future<String> getMapPath() async {
   return '$path/mapData';
 }
 
-Future<MapLimits> getMapLimits() async {
+Future<MapLimits?> getMapLimits() async {
   if (kIsWeb) {
     return null;
   }
   final mapPath = _getMapPath(await _localPath);
+  Directory dir = Directory(mapPath);
+  if (!dir.existsSync()) {
+    return null;
+  }
   Range<int> minMaxZ = await Directory(mapPath).list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .map(int.tryParse)
-      .fold(Range.nil(0), Range.merged);
+      .where((int? n) => n != null)
+      .cast<int>()
+      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
   Range<int> minMaxX = await Directory('$mapPath/${minMaxZ.max}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .map(int.tryParse)
-      .fold(Range.nil(0), Range.merged);
+      .where((int? n) => n != null)
+      .cast<int>()
+      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
   Range<int> minXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.min}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.file)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .where((String s) => s.endsWith('@2x.png'))
       .map((String s) => s.substring(0, s.length - '@2x.png'.length))
       .map(int.tryParse)
-      .fold(Range.nil(0), Range.merged);
+      .where((int? n) => n != null)
+      .cast<int>()
+      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
   Range<int> maxXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.max}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.file)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .where((String s) => s.endsWith('@2x.png'))
       .map((String s) => s.substring(0, s.length - '@2x.png'.length))
       .map(int.tryParse)
-      .fold(Range.nil(0), Range.merged);
+      .where((int? n) => n != null)
+      .cast<int>()
+      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
   if (minXminMaxY != maxXminMaxY) {
     throw IllegalStateException('Minimum and maximum Y tiles are different for minimum and maximum X.');
   }

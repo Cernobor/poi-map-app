@@ -14,11 +14,11 @@ class _PairingDialogState extends State<PairingDialog> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   final GlobalKey<ScaffoldState> scaffoldKey;
 
-  String addressInputError;
-  String nameInputError;
+  String? addressInputError;
+  String? nameInputError;
   bool exists = false;
 
-  QRViewController controller;
+  late QRViewController controller;
   bool scanning = false;
 
   _PairingDialogState(this.scaffoldKey);
@@ -125,9 +125,9 @@ class _PairingDialogState extends State<PairingDialog> {
           value: exists,
           title: Text(I18N.of(context).handshakeExistsTitle),
           subtitle: Text(I18N.of(context).handshakeExistsSubtitle),
-          onChanged: (bool value) {
+          onChanged: (bool? value) {
             setState(() {
-              exists = value;
+              exists = value!;
             });
           },
         ),
@@ -158,9 +158,9 @@ class _PairingDialogState extends State<PairingDialog> {
 
   void _onQRViewCreated(QRViewController controller) {
     this.controller = controller;
-    controller.scannedDataStream.listen((String data) {
-      developer.log(data);
-      addressInputController.text = data;
+    controller.scannedDataStream.listen((Barcode barcode) {
+      developer.log(barcode.code);
+      addressInputController.text = barcode.code;
     });
   }
 
@@ -204,7 +204,7 @@ class _PairingDialogState extends State<PairingDialog> {
 class PairingDialog extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
 
-  const PairingDialog({Key key, this.scaffoldKey}) : super(key: key);
+  const PairingDialog({Key? key, required this.scaffoldKey}) : super(key: key);
 
   @override
   State<StatefulWidget> createState() {

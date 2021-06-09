@@ -12,14 +12,14 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map/plugin_api.dart';
-import 'package:latlong/latlong.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:poi_map_app/AddPoiDialog.dart';
 import 'package:poi_map_app/PairingDialog.dart';
 import 'package:poi_map_app/communication.dart' as comm;
 import 'package:poi_map_app/data.dart' as data;
 import 'package:poi_map_app/utils.dart';
-import 'package:transparent_image/transparent_image.dart';
+//import 'package:transparent_image/transparent_image.dart';
 
 import 'data.dart';
 import 'i18n.dart';
@@ -47,6 +47,8 @@ void main() => runApp(MaterialApp(
     ));
 
 class MainWidgetState extends State<MainWidget> {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
   // constants
   static const double FALLBACK_MIN_ZOOM = 1;
   static const double FALLBACK_MAX_ZOOM = 18;
@@ -54,34 +56,37 @@ class MainWidgetState extends State<MainWidget> {
   static final Color basePoiColor = Colors.green;
   static final Color myGlobalPoiColor = Colors.blue;
   static final Color myLocalPoiColor = Colors.blue.withAlpha(128);
-  // "constants"
-  final MapController mapController = MapControllerImpl();
+
+  // location and map
   final Location location = Location();
-  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+  final MapController mapController = MapController();
 
   // handling flags and values
+  bool mapReady = false;
   double progressValue = -1;
   bool pinging = false;
   bool serverAvailable = false;
-  StreamSubscription<LocationData> locationSubscription;
-  StreamSubscription<double> compassSubscription;
+  StreamSubscription<LocationData>? locationSubscription;
+  StreamSubscription<CompassEvent>? compassSubscription;
   bool viewLockedToLocation = false;
-  LatLng currentLocation;
-  double currentHeading;
-  Poi infoTarget;
-  Poi navigationTarget;
+  LatLng? currentLocation;
+  double? currentHeading;
+  Poi? infoTarget;
+  Poi? navigationTarget;
   bool poiListExpanded = false;
 
   // settings
-  String mapTilesPath;
-  ServerSettings settings;
+  ServerSettings? settings;
+  String? mapTilesPath;
+  data.MapState? mapState;
+  MapLimits? mapLimits;
+
+  // data
   PoiCollection localPois = PoiCollection('local', <Poi>[]);
   PoiCollection globalPois = PoiCollection('global', <Poi>[]);
   Authors authors = data.Authors();
-  data.MapState mapState = data.MapState();
-  MapLimits mapLimits;
 
-  Future<dynamic> init;
+  Future<dynamic>? init;
 
   @override
   void initState() {
@@ -89,59 +94,62 @@ class MainWidgetState extends State<MainWidget> {
     init = Future.delayed(Duration(seconds: 5), ()
     {
       return Future.wait([
-        ServerSettings.load().then((ServerSettings settings) {
-          setState(() {
-            this.settings = settings;
-            startPinging();
-          });
+        ServerSettings.load().then((ServerSettings? settings) {
+          if (settings != null) {
+            setState(() {
+              this.settings = settings;
+              startPinging();
+            });
+          }
         }).catchError((e) {
           developer.log(e.toString());
-          scaffoldKey.currentState.showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('TODO settings ${e.toString()}'),
             duration: Duration(seconds: 5),
           ));
         }),
         localPois.load().catchError((e) {
           developer.log(e.toString());
-          scaffoldKey.currentState.showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('TODO local ${e.toString()}'),
             duration: Duration(seconds: 5),
           ));
         }),
         globalPois.load().catchError((e) {
           developer.log(e.toString());
-          scaffoldKey.currentState.showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('TODO global ${e.toString()}'),
             duration: Duration(seconds: 5),
           ));
         }),
         authors.load().catchError((e) {
           developer.log(e.toString());
-          scaffoldKey.currentState.showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('TODO authors ${e.toString()}'),
             duration: Duration(seconds: 5),
           ));
         }),
-        mapState.load().then((_) {
+        data.MapState.load().then((data.MapState? state) {
+          mapState = state;
           //mapController.move(mapState.center, mapState.zoom.toDouble());
         }).catchError((e) {
           developer.log(e.toString());
-          scaffoldKey.currentState.showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('TODO map state ${e.toString()}'),
             duration: Duration(seconds: 5),
           ));
         }),
-        getMapPath().then((String path) {
+        getMapPath().then((String? path) {
           developer.log('Map path: $path');
           setState(() {
             mapTilesPath = path;
           });
         }),
-        getMapLimits().then((MapLimits mapLimits) {
+        getMapLimits().then((MapLimits? mapLimits) {
           this.mapLimits = mapLimits;
         }).catchError((e) {
           developer.log(e.toString());
-          scaffoldKey.currentState.showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('TODO map limits'),
             duration: Duration(seconds: 5),
           ));
@@ -196,7 +204,7 @@ class MainWidgetState extends State<MainWidget> {
     );
   }
 
-  Widget createAppBar(BuildContext context) {
+  AppBar createAppBar(BuildContext context) {
     return AppBar(
       title: Text(I18N.of(context).appTitle),
       centerTitle: true,
@@ -318,7 +326,7 @@ class MainWidgetState extends State<MainWidget> {
             globalPois.pois.map((Poi poi) => ListTile(
               title: Text('${poi.name} (${authors[poi.authorId]})'),
               subtitle: Text('Lat: ${poi.coords.latitude.toStringAsFixed(6)}\nLng: ${poi.coords.longitude.toStringAsFixed(6)} '),
-              leading: Icon(Icons.place, color: poi.authorId == settings.id ? myGlobalPoiColor : basePoiColor,),
+              leading: Icon(Icons.place, color: poi.authorId == settings?.id ? myGlobalPoiColor : basePoiColor,),
               trailing: poi == navigationTarget ? Icon(Icons.navigation) : null,
               isThreeLine: true,
               selected: poi == infoTarget,
@@ -372,17 +380,20 @@ class MainWidgetState extends State<MainWidget> {
     return FlutterMap(
       options: MapOptions(
         center: mapState?.center,
-        zoom: mapState?.zoom?.toDouble() ?? (mapLimits?.zoom?.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
-        maxZoom: mapLimits?.zoom?.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
-        minZoom: mapLimits?.zoom?.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
-        nePanBoundary: mapLimits?.latLngBounds?.northEast,
-        swPanBoundary: mapLimits?.latLngBounds?.southWest,
-        onPositionChanged: !mapController.ready
-            ? null
-            : onMapPositionChanged,
-        onTap: onMapTap
+        zoom: mapState?.zoom.toDouble() ?? (mapLimits?.zoom.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
+        maxZoom: mapLimits?.zoom.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
+        minZoom: mapLimits?.zoom.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
+        nePanBoundary: mapLimits?.latLngBounds.northEast,
+        swPanBoundary: mapLimits?.latLngBounds.southWest,
+        onPositionChanged: onMapPositionChanged,
+        onTap: onMapTap,
+        onMapCreated: (MapController mapController) {
+          setState(() {
+            mapReady = true;
+          });
+        }
       ),
-      layers: [
+      layers: [/*
         TileLayerOptions(
             tileProvider: FileTileProvider(),
             urlTemplate: '$mapTilesPath/{z}/{x}/{y}@2x.png',
@@ -453,7 +464,7 @@ class MainWidgetState extends State<MainWidget> {
         // POIs
         MarkerLayerOptions(markers: createMarkers(globalPois)),
         MarkerLayerOptions(markers: createMarkers(localPois)),
-      ],
+      */],
       mapController: mapController,
     );
   }
@@ -472,7 +483,7 @@ class MainWidgetState extends State<MainWidget> {
           child: Icon(
             Icons.place,
             size: 50.0 * (poi == infoTarget ? 1.5 : 1),
-            color: poi.authorId == settings.id ? myColor : basePoiColor,
+            color: poi.authorId == settings?.id ? myColor : basePoiColor,
           )
         ),
       ),
@@ -480,8 +491,8 @@ class MainWidgetState extends State<MainWidget> {
   }
 
   Widget createPoiInfoContentDistance(BuildContext context) {
-    var dist = distance.as(LengthUnit.Centimeter, currentLocation, navigationTarget.coords) / 100.0;
-    var bearing = distance.bearing(currentLocation, navigationTarget.coords);
+    var dist = distance.as(LengthUnit.Centimeter, currentLocation!, navigationTarget!.coords) / 100.0;
+    var bearing = distance.bearing(currentLocation!, navigationTarget!.coords);
     if (bearing < 0) {
       bearing += 360;
     }
@@ -500,12 +511,12 @@ class MainWidgetState extends State<MainWidget> {
 
   Widget createPoiInfoContentFull(BuildContext context) {
     bool isNavigating = navigationTarget != null && currentLocation != null && navigationTarget == infoTarget;
-    String latStr = 'Lat: ${infoTarget.coords.latitude.toStringAsFixed(6)}';
-    String lngStr = 'Lng: ${infoTarget.coords.longitude.toStringAsFixed(6)}';
-    String distStr, brgStr;
+    String latStr = 'Lat: ${infoTarget!.coords.latitude.toStringAsFixed(6)}';
+    String lngStr = 'Lng: ${infoTarget!.coords.longitude.toStringAsFixed(6)}';
+    String distStr = '', brgStr = '';
     if (isNavigating) {
-      distStr = '${I18N.of(context).distance}: ${distance.as(LengthUnit.Centimeter, currentLocation, navigationTarget.coords) / 100.0} m';
-      var bearing = distance.bearing(currentLocation, navigationTarget.coords);
+      distStr = '${I18N.of(context).distance}: ${distance.as(LengthUnit.Centimeter, currentLocation!, navigationTarget!.coords) / 100.0} m';
+      var bearing = distance.bearing(currentLocation!, navigationTarget!.coords);
       if (bearing < 0) {
         bearing += 360;
       }
@@ -532,24 +543,26 @@ class MainWidgetState extends State<MainWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text('${infoTarget.name} (${authors[infoTarget.authorId]})', style: Theme.of(context).textTheme.title),
+                    Text('${infoTarget!.name} (${authors[infoTarget!.authorId]})', style: Theme.of(context).textTheme.headline6),
                     Text('$latStr $lngStr', style: Theme.of(context).textTheme.caption),
                     if (isNavigating)
                       Text('$distStr $brgStr', style: Theme.of(context).textTheme.caption),
                   ],
                 ),
               ),
-              if (infoTarget.description != null && infoTarget.description.isNotEmpty)
+              if (infoTarget?.description != null && infoTarget!.description.isNotEmpty)
                 Container(
                     padding: EdgeInsets.only(left: 16.0, right: 16.0, bottom: 4.0),
-                    child: Text(infoTarget.description)
+                    child: Text(infoTarget!.description)
                 ),
               Container(
                 padding: EdgeInsets.zero,
                 height: 30,
                 margin: EdgeInsets.zero,
-                child: ButtonTheme.bar(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+                child: ButtonBarTheme(
+                  data: ButtonBarThemeData(
+                    buttonPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -558,15 +571,15 @@ class MainWidgetState extends State<MainWidget> {
                         child: Text(
                             (navigationTarget == infoTarget ? I18N.of(context).stopNavigationButton : I18N.of(context).navigateToButton).toUpperCase()
                         ),
-                        onPressed: currentLocation == null ? null : () => this.onPoiInfoNavigate(infoTarget),
+                        onPressed: currentLocation == null ? null : () => this.onPoiInfoNavigate(infoTarget!),
                       ),
                       MaterialButton(
                         child: Text(I18N.of(context).deleteButton.toUpperCase()),
-                        onPressed: infoTarget.id != null ? null : () => this.onDeletePoi(infoTarget),
+                        onPressed: infoTarget?.id != null ? null : () => this.onDeletePoi(infoTarget!),
                       ),
                       MaterialButton(
                         child: Text(I18N.of(context).centerViewPoiInfoButton.toUpperCase()),
-                        onPressed: () => this.onCenterViewPoi(infoTarget),
+                        onPressed: () => this.onCenterViewPoi(infoTarget!),
                       )
                     ],
                   ),
@@ -590,12 +603,13 @@ class MainWidgetState extends State<MainWidget> {
           child: FloatingActionButton(
             tooltip: I18N.of(context).zoomIn,
             child: Icon(Icons.zoom_in, size: 30,),
-            backgroundColor: mapController.ready && mapController.zoom < (mapLimits?.zoom?.max ?? FALLBACK_MAX_ZOOM)
+            backgroundColor: mapReady && mapController.zoom < (mapLimits?.zoom.max ?? FALLBACK_MAX_ZOOM)
                 ? Theme.of(context).accentColor
                 : Theme.of(context).disabledColor,
             onPressed: () {
-              mapController.move(
-                  mapController.center, mapController.zoom + 1);
+              if (mapReady) {
+                mapController.move(mapController.center, mapController.zoom + 1);
+              }
             },
           ),
         ),
@@ -604,12 +618,13 @@ class MainWidgetState extends State<MainWidget> {
           child: FloatingActionButton(
             tooltip: I18N.of(context).zoomOut,
             child: Icon(Icons.zoom_out, size: 30,),
-            backgroundColor: mapController.ready && mapController.zoom > (mapLimits?.zoom?.min ?? FALLBACK_MIN_ZOOM)
+            backgroundColor: mapReady && mapController.zoom > (mapLimits?.zoom.min ?? FALLBACK_MIN_ZOOM)
                 ? Theme.of(context).accentColor
                 : Theme.of(context).disabledColor,
             onPressed: () {
-              mapController.move(
-                  mapController.center, mapController.zoom - 1);
+              if (mapReady) {
+                mapController.move(mapController.center, mapController.zoom - 1);
+              }
             },
           ),
         ),
@@ -633,12 +648,12 @@ class MainWidgetState extends State<MainWidget> {
                       Container(
                           padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                           alignment: Alignment.center,
-                          child: Text('GPS', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),)
+                          child: Text('GPS', style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),)
                       ),
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.center,
-                        child: Text('TGT', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text('TGT', style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       )
                     ]
                 ),
@@ -647,17 +662,17 @@ class MainWidgetState extends State<MainWidget> {
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text('Lat', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text('Lat', style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text(currentLocation == null ? '-' : currentLocation.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text(currentLocation == null ? '-' : currentLocation!.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text(!mapController.ready ? '-' : mapController.center.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text(mapReady ? '-' : mapController.center.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                     ]
                 ),
@@ -666,17 +681,17 @@ class MainWidgetState extends State<MainWidget> {
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text('Lng', style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text('Lng', style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text(currentLocation == null ? '-' : currentLocation.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text(currentLocation == null ? '-' : currentLocation!.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text(!mapController.ready ? '-' : mapController.center.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.body1.apply(fontFamily: 'monospace'),),
+                        child: Text(mapReady ? '-' : mapController.center.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                     ]
                 )
@@ -724,7 +739,7 @@ class MainWidgetState extends State<MainWidget> {
     location.getLocation().then((LocationData loc) {
       developer.log('One-time location: ${loc.latitude} ${loc.longitude}');
       setState(() {
-        currentLocation = LatLng(loc.latitude, loc.longitude);
+        currentLocation = LatLng(loc.latitude!, loc.longitude!);
         onCurrentLocation();
       });
     });
@@ -733,12 +748,12 @@ class MainWidgetState extends State<MainWidget> {
   void onLockViewToLocation() {
     setState(() {
       viewLockedToLocation = true;
-      mapController.move(currentLocation, mapController.zoom);
+      mapController.move(currentLocation!, mapController.zoom);
     });
   }
 
   void onMapPositionChanged(MapPosition position, bool hasGesture) {
-    mapState.set(
+    /*mapState.set(
       center: mapController.center,
       zoom: mapController.zoom.round()
     );
@@ -746,7 +761,7 @@ class MainWidgetState extends State<MainWidget> {
       setState(() {
         viewLockedToLocation = false;
       });
-    }
+    }*/
   }
 
   void onToggleLocationContinuous() {
@@ -755,30 +770,30 @@ class MainWidgetState extends State<MainWidget> {
           location.onLocationChanged.listen((LocationData loc) {
             //developer.log('Continuous location: ${loc.latitude} ${loc.longitude}');
             setState(() {
-              currentLocation = LatLng(loc.latitude, loc.longitude);
+              currentLocation = LatLng(loc.latitude!, loc.longitude!);
               onCurrentLocation();
             });
           });
-      compassSubscription = FlutterCompass.events.listen((double heading) {
+      compassSubscription = FlutterCompass.events!.listen((CompassEvent evt) {
         //developer.log('Heading: $heading');
         setState(() {
-          currentHeading = math.pi * heading / 180.0;
+          currentHeading = math.pi * evt.heading! / 180.0;
         });
       });
       developer.log('Compass subscription: $compassSubscription');
     } else {
-      locationSubscription.cancel();
+      locationSubscription!.cancel();
       setState(() {
         locationSubscription = null;
       });
-      compassSubscription.cancel();
+      compassSubscription!.cancel();
       compassSubscription = null;
     }
   }
 
   void onCurrentLocation() {
     if (viewLockedToLocation) {
-      mapController.move(currentLocation, mapController.zoom);
+      mapController.move(currentLocation!, mapController.zoom);
     }
   }
 
@@ -795,7 +810,7 @@ class MainWidgetState extends State<MainWidget> {
       developer.log(settings.toString());
       setState(() {
         this.settings = settings;
-        this.settings.save();
+        this.settings!.save();
       });
     }
     startPinging();
@@ -804,7 +819,7 @@ class MainWidgetState extends State<MainWidget> {
   void onPing() async {
     setState(() {
       pinging = true;
-      comm.ping(settings.serverAddress).then((bool pong) {
+      comm.ping(settings!.serverAddress).then((bool pong) {
         setState(() {
           pinging = false;
           serverAvailable = pong;
@@ -834,15 +849,13 @@ class MainWidgetState extends State<MainWidget> {
     developer.log('onDownloadMap');
     Navigator.of(context).pop();
     // download
-    var res = await comm.downloadMap(settings.serverAddress, settings.tilePackPath);
-    var length = res.a;
-    var data = res.b;
+    var res = await comm.downloadMap(settings!.serverAddress, settings!.tilePackPath);
     var received = 0;
-    var stream = data.map(length != null ? (chunk) {
+    var stream = res.dataStream.map(res.contentLength != null ? (chunk) {
       received += chunk.length;
       //developer.log('Received $received of ${length} bytes.');
       setState(() {
-        progressValue = received / length;
+        progressValue = received / res.contentLength!;
       });
       return chunk;
     } : (chunk) {
@@ -850,7 +863,7 @@ class MainWidgetState extends State<MainWidget> {
       //developer.log('Received $received bytes.');
       return chunk;
     });
-    scaffoldKey.currentState.showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(I18N.of(context).downloadingMapSnackBar),
       duration: Duration(seconds: 3),
     ));
@@ -860,7 +873,7 @@ class MainWidgetState extends State<MainWidget> {
     setState(() {
       progressValue = 0;
     });
-    scaffoldKey.currentState.showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(I18N.of(context).unpackingMapSnackBar),
       duration: Duration(seconds: 3),
     ));
@@ -873,21 +886,23 @@ class MainWidgetState extends State<MainWidget> {
 
     // get and focus on map center
     var mapLimits = await getMapLimits();
-    mapController.fitBounds(mapLimits.latLngBounds);
-    if (mapController.zoom < mapLimits.zoom.min) {
-      mapController.move(mapController.center, mapLimits.zoom.min.toDouble());
-    } else if (mapController.zoom > mapLimits.zoom.max) {
-      mapController.move(mapController.center, mapLimits.zoom.max.toDouble());
+    if (mapLimits != null) {
+      mapController.fitBounds(mapLimits.latLngBounds);
+      if (mapLimits.zoom.min != null && mapController.zoom < mapLimits.zoom.min!) {
+        mapController.move(mapController.center, mapLimits.zoom.min!.toDouble());
+      } else if (mapLimits.zoom.max != null && mapController.zoom > mapLimits.zoom.max!) {
+        mapController.move(mapController.center, mapLimits.zoom.max!.toDouble());
+      }
+      setState(() {
+        this.mapLimits = mapLimits;
+      });
     }
-    setState(() {
-      this.mapLimits = mapLimits;
-    });
 
     // done
     setState(() {
       progressValue = -1;
     });
-    scaffoldKey.currentState.showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(I18N.of(context).doneMapSnackBar),
       duration: Duration(seconds: 3),
     ));
@@ -895,25 +910,22 @@ class MainWidgetState extends State<MainWidget> {
 
   void onDownload() async {
     developer.log('onDownload');
-    List<Poi> pois;
-    Map<int, String> authors;
+    late comm.PoiData data;
     try {
-      var data = await comm.downloadPoiData(settings.serverAddress);
-      authors = data.a;
-      pois = data.b;
+      data = await comm.downloadPoiData(settings!.serverAddress);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
     }
-    await globalPois.set(pois);
-    await this.authors.set(authors);
+    await globalPois.set(data.pois);
+    await this.authors.set(data.authorsData);
     setState(() {});
   }
 
   void onUpload() async {
     developer.log('onUpload');
     try {
-      await comm.uploadPois(settings.serverAddress, localPois);
+      await comm.uploadPois(settings!.serverAddress, localPois);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
@@ -925,30 +937,27 @@ class MainWidgetState extends State<MainWidget> {
   void onSync() async {
     developer.log('onSync');
     try {
-      await comm.uploadPois(settings.serverAddress, localPois);
+      await comm.uploadPois(settings!.serverAddress, localPois);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
     }
-    List<Poi> pois;
-    Map<int, String> authors;
+    late comm.PoiData data;
     try {
-      var data = await comm.downloadPoiData(settings.serverAddress);
-      authors = data.a;
-      pois = data.b;
+      data = await comm.downloadPoiData(settings!.serverAddress);
     } on comm.CommException catch (e) {
       await commErrorDialog(e, context);
       return;
     }
-    await globalPois.set(pois);
+    await globalPois.set(data.pois);
     await localPois.set([]);
-    await this.authors.set(authors);
+    await this.authors.set(data.authorsData);
     setState(() {});
   }
 
   void onLogPoi(LogPoiType type) async {
     developer.log('Log poi $type');
-    LatLng loc;
+    LatLng ?loc;
     switch (type) {
       case LogPoiType.currentLocation:
         loc = currentLocation;
@@ -957,17 +966,17 @@ class MainWidgetState extends State<MainWidget> {
         loc = mapController.center;
         break;
     }
-    Map<String, String> info = await showDialog<Map<String, String>>(
+    Map<String, String> ?info = await showDialog<Map<String, String>>(
       context: context,
       builder: (BuildContext context) {
-        return AddPoiDialog(location: loc);
+        return AddPoiDialog(location: loc!);
       }
     );
     if (info == null) {
       return;
     }
     Navigator.pop(context);
-    await localPois.add(Poi(null, settings.id, info['name'], info['description'], loc));
+    await localPois.add(Poi(null, settings!.id, info['name']!, info['description']!, loc!));
     setState(() {});
   }
 
@@ -1020,13 +1029,13 @@ class MainWidgetState extends State<MainWidget> {
           content: Text('${I18N.of(context).aboutToDeletePoi}:\n'
               'Lat: ${toDelete.coords.latitude.toStringAsFixed(6)}\n'
               'Lng: ${toDelete.coords.latitude.toStringAsFixed(6)}\n'
-              '${toDelete.description ?? ''}'),
+              '${toDelete.description}'),
           actions: <Widget>[
-            FlatButton(
+            TextButton(
               child: Text(I18N.of(context).yes.toUpperCase()),
               onPressed: () => Navigator.of(context).pop(true),
             ),
-            FlatButton(
+            TextButton(
               child: Text(I18N.of(context).no.toUpperCase()),
               onPressed: () => Navigator.of(context).pop(false),
             )

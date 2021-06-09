@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:latlong/latlong.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'i18n.dart';
 
@@ -9,7 +9,7 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
   final TextEditingController descriptionInputController = TextEditingController();
   final LatLng location;
 
-  String nameInputError;
+  String? nameInputError;
 
   _AddPoiDialogState(this.location);
 
@@ -95,7 +95,7 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
 class AddPoiDialog extends StatefulWidget {
   final LatLng location;
 
-  const AddPoiDialog({Key key, this.location}) : super(key: key);
+  const AddPoiDialog({Key? key, required this.location}) : super(key: key);
 
   @override
   State<StatefulWidget> createState() {

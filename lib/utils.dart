@@ -7,35 +7,41 @@ import 'package:poi_map_app/communication.dart';
 import 'i18n.dart';
 
 class Tuple<A, B> {
-  final A a;
-  final B b;
+  final A ?a;
+  final B ?b;
 
   Tuple(this.a, this.b);
 }
 
 class Range<T extends num> {
-  final T min;
-  final T max;
+  final T? min;
+  final T? max;
 
-  Range(this.min, this.max) {
-    if (this.min > this.max) {
+  Range(T? min, T? max) : this.min = min, this.max = max {
+    if (min != null && max != null && min > max) {
       throw InvalidRangeException('$min is greater than $max');
     }
   }
 
-  Range.equal(T x) : this(x, x);
+  Range.equal(T? x) : this(x, x);
 
   const Range.nil(T _) : min = null, max = null;
 
-  Range<T> merge(T v) {
+  Range<T> extend(T v) {
     if (this == Range.nil(v)) {
       return Range.equal(v);
     }
-    return Range(math.min(min, v), math.max(max, v));
+    if (this.min == null) {
+      return Range(null, math.max(max!, v));
+    }
+    if (this.max == null) {
+      return Range(math.min(min!, v), null);
+    }
+    return Range(math.min(min!, v), math.max(max!, v));
   }
 
-  static Range<V> merged<V extends num>(Range<V> r, V v) {
-    return r.merge(v);
+  static Range<V> extended<V extends num>(Range<V> r, V v) {
+    return r.extend(v);
   }
 
   @override
@@ -106,7 +112,7 @@ Future<void> commErrorDialog(Exception e, BuildContext context) async {
 }
 
 class _BaseException implements Exception {
-  final String msg;
+  final String ?msg;
 
   _BaseException([this.msg]);
 
