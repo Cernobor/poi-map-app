@@ -9,5 +9,5 @@
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@drawable/normal_background</item>
     </style>
-    <color name="cbGreen">#33691e</color>
+    <color name="cbGreen">#153d24</color>
 </resources>

@@ -27,11 +27,10 @@ import 'i18n.dart';
 void main() => runApp(MaterialApp(
       onGenerateTitle: (BuildContext context) => I18N.of(context).appTitle,
       theme: ThemeData(
-        primaryColor: Color(0xFF33691e),
+        primaryColor: Color(0xff153d24),
         primaryColorBrightness: Brightness.dark,
-        primaryColorDark: Color(0xFF003d00),
-        primaryColorLight: Color(0xFF629749),
-        accentColor: Color(0xFF827717),
+        primaryColorLight: Color(0xffcda813),
+        accentColor: Color(0xff752f1a),
         accentColorBrightness: Brightness.dark,
       ),
       home: MainWidget(),
@@ -173,7 +172,7 @@ class MainWidgetState extends State<MainWidget> {
             child: Image(
               image: AssetImage('assets/splash.png'),
               width: 320.0,
-              height: 362.0,
+              height: 147.0,
             ),
           ),
           decoration: BoxDecoration(
