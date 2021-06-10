@@ -15,7 +15,7 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
 
   @override
   Widget build(BuildContext context) {
-    if (nameInputController.text != null && nameInputController.text.isNotEmpty) {
+    if (nameInputController.text.isNotEmpty) {
       nameInputError = null;
     } else {
       nameInputError = I18N.of(context).errorNameRequired;
@@ -33,7 +33,7 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
           ),
           onChanged: (String value) {
             setState(() {
-              if (value == null || value.isEmpty) {
+              if (value.isEmpty) {
                 nameInputError = I18N.of(context).errorNameRequired;
               } else {
                 nameInputError = null;
@@ -53,15 +53,11 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
-            RaisedButton(
-              color: Theme.of(context).accentColor,
-              textTheme: Theme.of(context).buttonTheme.textTheme,
+            ElevatedButton(
               child: Text(I18N.of(context).dialogSave),
               onPressed: _isValid() ? _save : null,
             ),
-            RaisedButton(
-              color: Theme.of(context).accentColor,
-              textTheme: Theme.of(context).buttonTheme.textTheme,
+            ElevatedButton(
               child: Text(I18N.of(context).dialogCancel),
               onPressed: () {
                 Navigator.of(context).pop();
@@ -74,8 +70,7 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
   }
 
   bool _isValid() {
-    return nameInputController.text != null
-        && nameInputController.text.isNotEmpty;
+    return nameInputController.text.isNotEmpty;
   }
 
   void _save() {
@@ -87,7 +82,7 @@ class _AddPoiDialogState extends State<AddPoiDialog> {
 
   @override
   void dispose() {
-    nameInputController?.dispose();
+    nameInputController.dispose();
     super.dispose();
   }
 }

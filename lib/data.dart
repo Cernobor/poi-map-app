@@ -49,17 +49,17 @@ class ServerSettings {
 }
 
 class MapLimits {
-  final Range<int> zoom;
-  final Range<int> x;
-  final Range<int> y;
-  final Range<double> lat;
-  final Range<double> lng;
+  final IntRange zoom;
+  final IntRange x;
+  final IntRange y;
+  final DoubleRange lat;
+  final DoubleRange lng;
 
   MapLimits(this.zoom, this.x, this.y)
-    : lat = Range(_y2lat(y.max!, pow(2.0, zoom.max!).toDouble()), _y2lat(y.min!, pow(2.0, zoom.max!).toDouble()))
-    , lng = Range(_x2lng(x.min!, pow(2.0, zoom.max!).toDouble()), _x2lng(x.max!, pow(2.0, zoom.max!).toDouble()));
+    : lat = DoubleRange(_y2lat(y.max, pow(2.0, zoom.max).toDouble()), _y2lat(y.min, pow(2.0, zoom.max).toDouble()))
+    , lng = DoubleRange(_x2lng(x.min, pow(2.0, zoom.max).toDouble()), _x2lng(x.max, pow(2.0, zoom.max).toDouble()));
 
-  LatLngBounds get latLngBounds => LatLngBounds(LatLng(lat.min!, lng.min!), LatLng(lat.max!, lng.max!));
+  LatLngBounds get latLngBounds => LatLngBounds(LatLng(lat.min, lng.min), LatLng(lat.max, lng.max));
 
   static _y2lat(int y, double trz) => atan(_sinh(pi - 2 * pi * y / trz)) * 180 / pi;
   static _x2lng(int x, double trz) => x * 360 / trz - 180;
@@ -201,11 +201,11 @@ class MapState {
 
   MapState._(this._center, this._zoom);
 
-  static Future<MapState?> load() async {
+  static Future<MapState> load() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? raw = prefs.getString('mapState');
     if (raw == null) {
-      return null;
+      return MapState._(LatLng(50, 15), 10);
     }
     Map<String, dynamic> data = jsonDecode(raw);
     return MapState._(LatLng(data['lat'], data['lng']), data['zoom']);
@@ -292,21 +292,27 @@ Future<MapLimits?> getMapLimits() async {
   if (!dir.existsSync()) {
     return null;
   }
-  Range<int> minMaxZ = await Directory(mapPath).list()
+  IntRange? minMaxZ = await Directory(mapPath).list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .map(int.tryParse)
       .where((int? n) => n != null)
       .cast<int>()
-      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
-  Range<int> minMaxX = await Directory('$mapPath/${minMaxZ.max}').list()
+      .fold(null, (IntRange? prev, int n) => prev == null ? IntRange.point(n) : IntRange.extended(prev, n));
+  if (minMaxZ == null) {
+    return null;
+  }
+  IntRange? minMaxX = await Directory('$mapPath/${minMaxZ.max}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.directory)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .map(int.tryParse)
       .where((int? n) => n != null)
       .cast<int>()
-      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
-  Range<int> minXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.min}').list()
+      .fold(null, (IntRange? prev, int n) => prev == null ? IntRange.point(n) : IntRange.extended(prev, n));
+  if (minMaxX == null) {
+    return null;
+  }
+  IntRange? minXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.min}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.file)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .where((String s) => s.endsWith('@2x.png'))
@@ -314,8 +320,11 @@ Future<MapLimits?> getMapLimits() async {
       .map(int.tryParse)
       .where((int? n) => n != null)
       .cast<int>()
-      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
-  Range<int> maxXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.max}').list()
+      .fold(null, (IntRange? prev, int n) => prev == null ? IntRange.point(n) : IntRange.extended(prev, n));
+  if (minXminMaxY == null) {
+    return null;
+  }
+  IntRange? maxXminMaxY = await Directory('$mapPath/${minMaxZ.max}/${minMaxX.max}').list()
       .where((FileSystemEntity e) => e.statSync().type == FileSystemEntityType.file)
       .map((FileSystemEntity e) => e.uri.pathSegments.lastWhere((String s) => s.isNotEmpty))
       .where((String s) => s.endsWith('@2x.png'))
@@ -323,7 +332,10 @@ Future<MapLimits?> getMapLimits() async {
       .map(int.tryParse)
       .where((int? n) => n != null)
       .cast<int>()
-      .fold(Range.nil(0), (Range<int> prev, int n) => Range.extended(prev, n));
+      .fold(null, (IntRange? prev, int n) => prev == null ? IntRange.point(n) : IntRange.extended(prev, n));
+  if (maxXminMaxY == null) {
+    return null;
+  }
   if (minXminMaxY != maxXminMaxY) {
     throw IllegalStateException('Minimum and maximum Y tiles are different for minimum and maximum X.');
   }

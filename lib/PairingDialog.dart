@@ -18,7 +18,7 @@ class _PairingDialogState extends State<PairingDialog> {
   String? nameInputError;
   bool exists = false;
 
-  late QRViewController controller;
+  QRViewController? controller;
   bool scanning = false;
 
   _PairingDialogState(this.scaffoldKey);
@@ -26,12 +26,12 @@ class _PairingDialogState extends State<PairingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    if (addressInputController.text != null && addressInputController.text.isNotEmpty) {
+    if (addressInputController.text.isNotEmpty) {
       addressInputError = null;
     } else {
       addressInputError = I18N.of(context).errorAddressRequired;
     }
-    if (nameInputController.text != null && nameInputController.text.isNotEmpty) {
+    if (nameInputController.text.isNotEmpty) {
       nameInputError = null;
     } else {
       nameInputError = I18N.of(context).errorNameRequired;
@@ -51,7 +51,7 @@ class _PairingDialogState extends State<PairingDialog> {
                 ),
                 onChanged: (String value) {
                   setState(() {
-                    if (value == null || value.isEmpty) {
+                    if (value.isEmpty) {
                       addressInputError = I18N.of(context).errorAddressRequired;
                     } else {
                       addressInputError = null;
@@ -60,14 +60,12 @@ class _PairingDialogState extends State<PairingDialog> {
                 },
               ),
             ),
-            RaisedButton(
-              color: Theme.of(context).accentColor,
-              textTheme: Theme.of(context).buttonTheme.textTheme,
+            ElevatedButton(
               child: Text(scanning ? I18N.of(context).stop : I18N.of(context).scan),
               onPressed: scanning ?
                 () {
                   setState(() {
-                    controller?.dispose();
+                    controller!.dispose();
                     scanning = false;
                   });
                 }
@@ -96,7 +94,7 @@ class _PairingDialogState extends State<PairingDialog> {
                     icon: Icon(Icons.switch_camera),
                     color: Theme.of(context).accentColor,
                     onPressed: () {
-                      controller?.flipCamera();
+                      controller!.flipCamera();
                     },
                   ),
                 ),
@@ -113,7 +111,7 @@ class _PairingDialogState extends State<PairingDialog> {
           ),
           onChanged: (String value) {
             setState(() {
-              if (value == null || value.isEmpty) {
+              if (value.isEmpty) {
                 nameInputError = I18N.of(context).errorNameRequired;
               } else {
                 nameInputError = null;
@@ -136,15 +134,11 @@ class _PairingDialogState extends State<PairingDialog> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
-            RaisedButton(
-              color: Theme.of(context).accentColor,
-              textTheme: Theme.of(context).buttonTheme.textTheme,
+            ElevatedButton(
               child: Text(I18N.of(context).dialogPair),
               onPressed: _isValid() ? _pair : null,
             ),
-            RaisedButton(
-              color: Theme.of(context).accentColor,
-              textTheme: Theme.of(context).buttonTheme.textTheme,
+            ElevatedButton(
               child: Text(I18N.of(context).dialogCancel),
               onPressed: () {
                 Navigator.of(context).pop();
@@ -165,9 +159,7 @@ class _PairingDialogState extends State<PairingDialog> {
   }
 
   bool _isValid() {
-    return addressInputController.text != null
-        && nameInputController.text != null
-        && addressInputController.text.isNotEmpty
+    return addressInputController.text.isNotEmpty
         && nameInputController.text.isNotEmpty;
   }
 
@@ -194,9 +186,11 @@ class _PairingDialogState extends State<PairingDialog> {
 
   @override
   void dispose() {
-    addressInputController?.dispose();
-    nameInputController?.dispose();
-    controller?.dispose();
+    addressInputController.dispose();
+    nameInputController.dispose();
+    if (controller != null) {
+      controller!.dispose();
+    }
     super.dispose();
   }
 }

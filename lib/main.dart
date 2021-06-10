@@ -19,7 +19,7 @@ import 'package:poi_map_app/PairingDialog.dart';
 import 'package:poi_map_app/communication.dart' as comm;
 import 'package:poi_map_app/data.dart' as data;
 import 'package:poi_map_app/utils.dart';
-//import 'package:transparent_image/transparent_image.dart';
+import 'package:transparent_image/transparent_image.dart';
 
 import 'data.dart';
 import 'i18n.dart';
@@ -29,6 +29,7 @@ void main() => runApp(MaterialApp(
       theme: ThemeData(
         primaryColor: Color(0xff153d24),
         primaryColorBrightness: Brightness.dark,
+        primaryColorDark: Color(0xff153d24),
         primaryColorLight: Color(0xffcda813),
         accentColor: Color(0xff752f1a),
         accentColorBrightness: Brightness.dark,
@@ -59,7 +60,7 @@ class MainWidgetState extends State<MainWidget> {
 
   // location and map
   final Location location = Location();
-  final MapController mapController = MapController();
+  final MapControllerImpl mapController = MapControllerImpl();
 
   // handling flags and values
   bool mapReady = false;
@@ -368,7 +369,7 @@ class MainWidgetState extends State<MainWidget> {
           )
         ),
         Container(
-          child: createZoomControls(context),
+          child: createMapControls(context),
           alignment: Alignment.topRight,
           padding: EdgeInsets.all(8.0),
         )
@@ -380,22 +381,25 @@ class MainWidgetState extends State<MainWidget> {
     return FlutterMap(
       options: MapOptions(
         center: mapState?.center,
-        zoom: mapState?.zoom.toDouble() ?? (mapLimits?.zoom.min?.toDouble()) ?? FALLBACK_MIN_ZOOM,
-        maxZoom: mapLimits?.zoom.max?.toDouble() ?? FALLBACK_MAX_ZOOM,
-        minZoom: mapLimits?.zoom.min?.toDouble() ?? FALLBACK_MIN_ZOOM,
+        zoom: mapState?.zoom.toDouble() ?? (mapLimits?.zoom.min.toDouble()) ?? FALLBACK_MIN_ZOOM,
+        maxZoom: mapLimits?.zoom.max.toDouble() ?? FALLBACK_MAX_ZOOM,
+        minZoom: mapLimits?.zoom.min.toDouble() ?? FALLBACK_MIN_ZOOM,
         nePanBoundary: mapLimits?.latLngBounds.northEast,
         swPanBoundary: mapLimits?.latLngBounds.southWest,
         onPositionChanged: onMapPositionChanged,
         onTap: onMapTap,
         onMapCreated: (MapController mapController) {
-          setState(() {
-            mapReady = true;
+          Future.microtask(() {
+            setState(() {
+              mapReady = true;
+            });
           });
         }
       ),
-      layers: [/*
+      layers: [
         TileLayerOptions(
             tileProvider: FileTileProvider(),
+            errorImage: AssetImage('assets/no-map-data.png'),
             urlTemplate: '$mapTilesPath/{z}/{x}/{y}@2x.png',
             backgroundColor: Theme.of(context).primaryColorDark,
             placeholderImage: MemoryImage(kTransparentImage)
@@ -405,11 +409,11 @@ class MainWidgetState extends State<MainWidget> {
             polylines: mapLimits == null ? [] : <Polyline>[
               Polyline(
                   points: <LatLng>[
-                    LatLng(mapLimits.lat.min, mapLimits.lng.min),
-                    LatLng(mapLimits.lat.min, mapLimits.lng.max),
-                    LatLng(mapLimits.lat.max, mapLimits.lng.max),
-                    LatLng(mapLimits.lat.max, mapLimits.lng.min),
-                    LatLng(mapLimits.lat.min, mapLimits.lng.min),
+                    LatLng(mapLimits!.lat.min, mapLimits!.lng.min),
+                    LatLng(mapLimits!.lat.min, mapLimits!.lng.max),
+                    LatLng(mapLimits!.lat.max, mapLimits!.lng.max),
+                    LatLng(mapLimits!.lat.max, mapLimits!.lng.min),
+                    LatLng(mapLimits!.lat.min, mapLimits!.lng.min),
                   ],
                   strokeWidth: 5,
                   color: Colors.red
@@ -422,8 +426,8 @@ class MainWidgetState extends State<MainWidget> {
             polylines: <Polyline>[
               Polyline(
                 points: <LatLng>[
-                  currentLocation,
-                  navigationTarget.coords,
+                  currentLocation!,
+                  navigationTarget!.coords,
                 ],
                 strokeWidth: 5,
                 color: Colors.blue
@@ -438,11 +442,11 @@ class MainWidgetState extends State<MainWidget> {
                 height: 50,
                 width: 50,
                 anchorPos: AnchorPos.align(AnchorAlign.center),
-                point: currentLocation,
+                point: currentLocation!,
                 builder: (context) {
                   if (currentHeading != null && locationSubscription != null) {
                     return Transform.rotate(
-                      angle: currentHeading,
+                      angle: currentHeading!,
                       child: Icon(
                         Icons.navigation,
                         color: Theme.of(context).primaryColorLight,
@@ -464,7 +468,7 @@ class MainWidgetState extends State<MainWidget> {
         // POIs
         MarkerLayerOptions(markers: createMarkers(globalPois)),
         MarkerLayerOptions(markers: createMarkers(localPois)),
-      */],
+      ],
       mapController: mapController,
     );
   }
@@ -592,7 +596,7 @@ class MainWidgetState extends State<MainWidget> {
     );
   }
 
-  Widget createZoomControls(BuildContext context) {
+  Widget createMapControls(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -624,6 +628,23 @@ class MainWidgetState extends State<MainWidget> {
             onPressed: () {
               if (mapReady) {
                 mapController.move(mapController.center, mapController.zoom - 1);
+              }
+            },
+          ),
+        ),
+        Container(
+          padding: EdgeInsets.only(top: 6),
+          child: FloatingActionButton(
+            tooltip: I18N.of(context).zoomOut,
+            child: Icon(Icons.navigation_sharp, size: 30,),
+            backgroundColor: mapReady && mapController.rotation != 0.0
+                ? Theme.of(context).accentColor
+                : Theme.of(context).disabledColor,
+            onPressed: () {
+              if (mapReady) {
+                setState(() {
+                  mapController.rotate(0);
+                });
               }
             },
           ),
@@ -672,7 +693,7 @@ class MainWidgetState extends State<MainWidget> {
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text(mapReady ? '-' : mapController.center.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
+                        child: Text(!mapReady ? '-' : mapController.center.latitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                     ]
                 ),
@@ -691,7 +712,7 @@ class MainWidgetState extends State<MainWidget> {
                       Container(
                         padding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                         alignment: Alignment.centerLeft,
-                        child: Text(mapReady ? '-' : mapController.center.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
+                        child: Text(!mapReady ? '-' : mapController.center.longitude.toStringAsPrecision(8), style: Theme.of(context).primaryTextTheme.bodyText2!.apply(fontFamily: 'monospace'),),
                       ),
                     ]
                 )
@@ -753,15 +774,17 @@ class MainWidgetState extends State<MainWidget> {
   }
 
   void onMapPositionChanged(MapPosition position, bool hasGesture) {
-    /*mapState.set(
-      center: mapController.center,
-      zoom: mapController.zoom.round()
-    );
-    if (mapController.center != currentLocation) {
+    if (mapState != null) {
+      mapState!.set(
+          center: mapController.center,
+          zoom: mapController.zoom.round()
+      );
+    }
+    if (mapReady && mapController.center != currentLocation) {
       setState(() {
         viewLockedToLocation = false;
       });
-    }*/
+    }
   }
 
   void onToggleLocationContinuous() {
@@ -792,6 +815,7 @@ class MainWidgetState extends State<MainWidget> {
   }
 
   void onCurrentLocation() {
+    developer.log("onCurrentLocation");
     if (viewLockedToLocation) {
       mapController.move(currentLocation!, mapController.zoom);
     }
@@ -888,10 +912,10 @@ class MainWidgetState extends State<MainWidget> {
     var mapLimits = await getMapLimits();
     if (mapLimits != null) {
       mapController.fitBounds(mapLimits.latLngBounds);
-      if (mapLimits.zoom.min != null && mapController.zoom < mapLimits.zoom.min!) {
-        mapController.move(mapController.center, mapLimits.zoom.min!.toDouble());
-      } else if (mapLimits.zoom.max != null && mapController.zoom > mapLimits.zoom.max!) {
-        mapController.move(mapController.center, mapLimits.zoom.max!.toDouble());
+      if (mapController.zoom < mapLimits.zoom.min) {
+        mapController.move(mapController.center, mapLimits.zoom.min.toDouble());
+      } else if (mapController.zoom > mapLimits.zoom.max) {
+        mapController.move(mapController.center, mapLimits.zoom.max.toDouble());
       }
       setState(() {
         this.mapLimits = mapLimits;

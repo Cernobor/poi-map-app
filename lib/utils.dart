@@ -13,54 +13,97 @@ class Tuple<A, B> {
   Tuple(this.a, this.b);
 }
 
-class Range<T extends num> {
-  final T? min;
-  final T? max;
+class IntRange {
+  final int min;
+  final int max;
+  final bool openMin;
+  final bool openMax;
 
-  Range(T? min, T? max) : this.min = min, this.max = max {
-    if (min != null && max != null && min > max) {
+  IntRange(int min, int max) : this.min = min, this.max = max, this.openMin = false, this.openMax = false {
+    if (min > max) {
       throw InvalidRangeException('$min is greater than $max');
     }
   }
 
-  Range.equal(T? x) : this(x, x);
+  IntRange.openMin(int max) : this.min = 0, this.max = max, this.openMin = true, this.openMax = true;
+  IntRange.openMax(int min) : this.min = min, this.max = 0, this.openMin = false, this.openMax = true;
+  IntRange.open() : this.min = 0, this.max = 0, this.openMin = true, this.openMax = true;
+  IntRange.point(int x) : this(x, x);
 
-  const Range.nil(T _) : min = null, max = null;
-
-  Range<T> extend(T v) {
-    if (this == Range.nil(v)) {
-      return Range.equal(v);
+  IntRange extend(int v) {
+    if (openMin && openMax) {
+      return this;
     }
-    if (this.min == null) {
-      return Range(null, math.max(max!, v));
+    if (openMin) {
+      return IntRange.openMin(math.max(max, v));
     }
-    if (this.max == null) {
-      return Range(math.min(min!, v), null);
+    if (openMax) {
+      return IntRange.openMax(math.min(min, v));
     }
-    return Range(math.min(min!, v), math.max(max!, v));
+    return IntRange(math.min(min, v), math.max(max, v));
   }
 
-  static Range<V> extended<V extends num>(Range<V> r, V v) {
+  static IntRange extended(IntRange r, int v) {
     return r.extend(v);
   }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-          other is Range &&
-              runtimeType == other.runtimeType &&
-              min == other.min &&
-              max == other.max;
+      other is IntRange &&
+          runtimeType == other.runtimeType &&
+          (
+              (openMin && openMax && other.openMin && other.openMax) ||
+              (openMin && !openMax && other.openMin && !other.openMax && max == other.max) ||
+              (!openMin && openMax && !other.openMin && other.openMax && min == other.min) ||
+              (!openMin && !openMax && !other.openMin && !other.openMax && min == other.min && max == other.max)
+          );
 
   @override
-  int get hashCode =>
-      min.hashCode ^
-      max.hashCode;
-
-  @override
-  String toString() {
-    return 'Range{min: $min, max: $max}';
+  int get hashCode {
+    if (openMin && openMax) {
+      return openMin.hashCode ^ openMax.hashCode;
+    }
+    if (openMin) {
+      return openMin.hashCode ^ openMax.hashCode ^ max.hashCode;
+    }
+    if (openMax) {
+      return openMin.hashCode ^ openMax.hashCode ^ min.hashCode;
+    }
+    return min.hashCode ^ max.hashCode ^ openMin.hashCode ^ openMax.hashCode;
   }
+}
+
+class DoubleRange {
+  final double min;
+  final double max;
+
+  DoubleRange(double min, double max) : this.min = min, this.max = max {
+    if (min > max) {
+      throw InvalidRangeException('$min is greater than $max');
+    }
+  }
+
+  DoubleRange.point(double x) : this(x, x);
+
+  DoubleRange extend(double v) {
+    return DoubleRange(math.min(min, v), math.max(max, v));
+  }
+
+  static IntRange extended(IntRange r, int v) {
+    return r.extend(v);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DoubleRange &&
+          runtimeType == other.runtimeType &&
+          min == other.min &&
+          max == other.max;
+
+  @override
+  int get hashCode => min.hashCode ^ max.hashCode;
 }
 
 Future<void> commErrorDialog(Exception e, BuildContext context) async {
